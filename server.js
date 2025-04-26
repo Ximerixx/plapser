@@ -3,9 +3,19 @@ const express = require("express");
 const ical = require("ical-generator").default;
 const { parseSchedule } = require("./parser/parser");
 
+const path = require('path');
+
 const app = express();
 const port = 3000;
 const TIMEZONE = "Europe/Moscow";
+
+
+const CACHE_TTL = 3600000; // 1 час в миллисекундах
+let groupsCache = {
+    data: [],
+    lastUpdated: 0
+};
+
 
 function getDateOffset(offset) {
     const d = new Date();
@@ -85,6 +95,39 @@ app.get("/gen", async (req, res) => {
         res.status(500).send("damm 500, you must be hard on this, don't you?");
     }
 });
+
+
+
+app.get('/api/groups', async (req, res) => {
+    try {
+        // Если кэш устарел, обновляем его
+        if (Date.now() - groupsCache.lastUpdated > CACHE_TTL) {
+            const response = await fetch('https://kis.vgltu.ru/list?type=Group');
+            const groups = await response.json();
+
+            groupsCache = {
+                data: Array.isArray(groups) ? groups.filter(g => typeof g === 'string' && g.trim() !== '') : [],
+                lastUpdated: Date.now()
+            };
+        }
+
+        res.json(groupsCache.data);
+    } catch (error) {
+        console.error('Ошибка при получении групп:', error);
+        res.status(500).json({ error: 'Не удалось получить список групп' });
+    }
+});
+
+
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Роут для /gui, который будет перенаправлять на gui.html
+app.get('/gui', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'gui.html'));
+});
+
+
 
 app.listen(port, () => {
     console.log(`server ok!`);
