@@ -109,7 +109,7 @@ async function parseSchedule(date, group, subgroup = null) {
                 });
                 if (buffer) elements.push(buffer);
 
-                // Обработка элементов
+                // by element things 
                 let hasType = false;
                 elements.forEach((element, idx) => {
                     if (typeof element === 'object') {
@@ -169,7 +169,7 @@ async function parseSchedule(date, group, subgroup = null) {
 
 
 }
-// // Пример использования
+// // usdap
 // async function main() {
 //     const schedule = await parseSchedule('2025-04-21', 'ИС2-244-ОБ');
 //     if (schedule) {
@@ -181,4 +181,4 @@ async function parseSchedule(date, group, subgroup = null) {
 // main();
 
 
-module.exports = { parseSchedule }; // ← обязательно так
+module.exports = { parseSchedule }; 

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор расписания</title>
+    <link rel="stylesheet" href="stylesheet.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Генератор расписания</h1>
+
+        <div class="input-group">
+            <select id="group" class="input-field" required>
+                <option value="" disabled selected></option>
+            </select>
+            <label class="input-label">Группа</label>
+        </div>
+
+        <div class="type-options">
+            <div class="type-option">
+                <input type="radio" id="type-json" name="type" value="json" checked>
+                <label for="type-json">JSON (один день)</label>
+                <button class="help-button">?</button>
+                <div class="help-tooltip">
+                    <h4>Формат JSON</h4>
+                    <p>Описание формата JSON.</p>
+                </div>
+            </div>
+
+            <div class="type-option">
+                <input type="radio" id="type-ics" name="type" value="ics">
+                <label for="type-ics">ICS (один день)</label>
+                <button class="help-button">?</button>
+                <div class="help-tooltip">
+                    <h4>Формат ICS (один день)</h4>
+                    <p>Описание формата ICS на день.</p>
+                </div>
+            </div>
+
+            <div class="type-option">
+                <input type="radio" id="type-ics-week" name="type" value="ics-week">
+                <label for="type-ics-week">ICS (неделя)</label>
+                <button class="help-button">?</button>
+                <div class="help-tooltip">
+                    <h4>Формат ICS (неделя)</h4>
+                    <p>Описание формата ICS на неделю.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="input-group">
+                <input type="number" id="subgroup" class="input-field" placeholder=" " min="1" max="2">
+                <label class="input-label">Подгруппа (необязательно)</label>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="tomorrow" class="checkbox">
+                <label for="tomorrow">На завтра</label>
+                <button class="help-button">?</button>
+                <div class="help-tooltip">
+                    <h4>На завтра</h4>
+                    <p>При включении будет выбрано расписание на завтра.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <input type="date" id="date" class="input-field" placeholder=" ">
+            <label class="input-label">Дата (необязательно)</label>
+        </div>
+
+        <button id="generate" class="button">Сгенерировать</button>
+
+        <div class="link-container">
+            <input type="text" id="generated-link" class="link-field" readonly>
+            <button id="copy-button" class="button copy-button">Копировать</button>
+        </div>
+    </div>
+
+    <script src="gen.js"></script>
+</body>
+</html>
