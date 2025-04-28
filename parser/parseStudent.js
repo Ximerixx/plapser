@@ -5,7 +5,7 @@ const fs = require('fs');
 const VALID_LESSON_TYPES = new Set(['лек.', 'пр.', 'лаб.']);
 const GROUP_REGEX = /^[А-ЯЁ]{2}\d-\d{3}-[А-ЯЁ]{2}$/;
 
-async function parseSchedule(date, group, subgroup = null) {
+async function parseStudent(date, group, subgroup = null) {
     try {
         const url = `https://kis.vgltu.ru/schedule?date=${date}&group=${encodeURIComponent(group)}`;
         const { data } = await axios.get(url);
@@ -181,4 +181,4 @@ async function parseSchedule(date, group, subgroup = null) {
 // main();
 
 
-module.exports = { parseSchedule }; 
+module.exports = { parseStudent }; 

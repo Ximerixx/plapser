@@ -1,26 +1,49 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Генератор расписания</title>
     <link rel="stylesheet" href="stylesheet.css">
 </head>
+
 <body>
     <div class="container">
         <h1>Генератор расписания</h1>
 
-        <div class="input-group">
+        <!-- <div class="input-group">
             <select id="group" class="input-field" required>
                 <option value="" disabled selected></option>
             </select>
             <label class="input-label">Группа</label>
-        </div>
+        </div> -->
+        <div class="input-group">
+            <input type="text" id="group" class="input-field" placeholder=" ">
+            <button id="clear-group" class="button secondary small-button">×</button>
 
+
+            <label class="input-label">Группа / Преподаватель</label>
+            <ul id="group-list" class="dropdown"></ul> <!-- ВАЖНО! Нужно добавить! -->
+        </div>
+        <div class="checkbox-container mode-toggle">
+            <input type="checkbox" id="mode-toggle" class="checkbox">
+            <label for="mode-toggle">Режим преподавателя</label>
+        </div>
         <div class="type-options">
             <div class="type-option">
                 <input type="radio" id="type-json" name="type" value="json" checked>
                 <label for="type-json">JSON (один день)</label>
+                <button class="help-button">?</button>
+                <div class="help-tooltip">
+                    <h4>Формат JSON</h4>
+                    <p>Описание формата JSON.</p>
+                </div>
+            </div>
+
+            <div class="type-option">
+                <input type="radio" id="type-json-week" name="type" value="json-week">
+                <label for="type-json-week">JSON (неделя)</label>
                 <button class="help-button">?</button>
                 <div class="help-tooltip">
                     <h4>Формат JSON</h4>
@@ -77,8 +100,15 @@
             <input type="text" id="generated-link" class="link-field" readonly>
             <button id="copy-button" class="button copy-button">Копировать</button>
         </div>
+
+
+        <!-- <div class="input-group">
+            <label class="input-label">Предпросмотр ссылки</label>
+            <textarea id="preview" class="input-field" readonly rows="3"></textarea>
+        </div> -->
     </div>
 
     <script src="gen.js"></script>
 </body>
+
 </html>

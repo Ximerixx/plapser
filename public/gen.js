@@ -1,23 +1,55 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const groupSelect = document.getElementById('group');
+document.addEventListener('DOMContentLoaded', function () {
+    const modeToggle = document.getElementById('mode-toggle');
+    const groupInput = document.getElementById('group');
+    const groupList = document.getElementById('group-list');
     const subgroupInput = document.getElementById('subgroup');
+    const subgroupContainer = subgroupInput.closest('.input-group');
     const dateInput = document.getElementById('date');
     const tomorrowCheckbox = document.getElementById('tomorrow');
     const generateButton = document.getElementById('generate');
     const generatedLink = document.getElementById('generated-link');
     const copyButton = document.getElementById('copy-button');
+    const groupLabel = document.querySelector('.input-group label');
 
-    // Установка даты
+    const previewField = document.getElementById('preview');
+
+    const clearButton = document.getElementById('clear-group');
+
+    clearButton.addEventListener('click', function (e) {
+        e.preventDefault();
+        clearGroupInput();
+    });
+
+    function clearGroupInput() {
+        groupInput.value = '';
+        groupList.innerHTML = '';
+    }
+
+    let allOptions = [];
+
     const today = new Date();
     dateInput.valueAsDate = today;
 
-    // Загрузка групп
+    modeToggle.addEventListener('change', function () {
+        if (this.checked) {
+            groupLabel.textContent = 'Преподаватель';
+            subgroupContainer.style.display = 'none';
+            clearGroupInput();
+            fetchTeachers();
+        } else {
+            groupLabel.textContent = 'Группа';
+            subgroupContainer.style.display = '';
+            clearGroupInput();
+            fetchGroups();
+        }
+    });
+
     fetchGroups();
 
     generateButton.addEventListener('click', generateLink);
     copyButton.addEventListener('click', copyLink);
 
-    tomorrowCheckbox.addEventListener('change', function() {
+    tomorrowCheckbox.addEventListener('change', function () {
         dateInput.disabled = this.checked;
         if (this.checked) {
             const tomorrow = new Date();
@@ -26,48 +58,82 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    groupInput.addEventListener('input', updateDropdown);
+
+
+
+
+
+
     async function fetchGroups() {
         try {
             const response = await fetch('/api/groups');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const groups = await response.json();
-
-            groupSelect.innerHTML = '';
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = 'Выберите группу';
-            defaultOption.disabled = true;
-            defaultOption.selected = true;
-            groupSelect.appendChild(defaultOption);
-
-            [...groups].sort((a, b) => a.localeCompare(b)).forEach(group => {
-                const option = document.createElement('option');
-                option.value = group;
-                option.textContent = group;
-                groupSelect.appendChild(option);
-            });
-
-            groupSelect.disabled = false;
+            allOptions = await response.json();
+            updateDropdown();
         } catch (error) {
             console.error('Ошибка загрузки групп:', error);
-            alert('Не удалось загрузить список групп. Пожалуйста, попробуйте позже.');
+            alert('Не удалось загрузить список групп.');
         }
     }
 
+    async function fetchTeachers() {
+        try {
+            const response = await fetch('/api/teachers');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            allOptions = await response.json();
+            updateDropdown();
+        } catch (error) {
+            console.error('Ошибка загрузки преподавателей:', error);
+            alert('Не удалось загрузить список преподавателей.');
+        }
+    }
+
+
+
+    function updateDropdown() {
+        const value = groupInput.value.toLowerCase();
+        groupList.innerHTML = '';
+
+        if (!value) return;
+
+        const filtered = allOptions.filter(option =>
+            option.toLowerCase().includes(value)
+        ).slice(0, 10);
+
+        filtered.forEach(option => {
+            const li = document.createElement('li');
+            li.textContent = option;
+            li.classList.add('dropdown-item');
+            li.addEventListener('click', () => {
+                groupInput.value = option;
+                groupList.innerHTML = '';
+            });
+            groupList.appendChild(li);
+        });
+    }
+
     function generateLink() {
-        const group = groupSelect.value;
+        const isTeacherMode = modeToggle.checked;
+        const entity = groupInput.value.trim();
         const type = document.querySelector('input[name="type"]:checked').value;
         const subgroup = subgroupInput.value;
         const date = dateInput.value;
         const tomorrow = tomorrowCheckbox.checked;
 
-        if (!group) {
-            alert('Пожалуйста, выберите группу');
+        if (!entity) {
+            alert(`Пожалуйста, выберите ${isTeacherMode ? 'преподавателя' : 'группу'}`);
             return;
         }
 
-        let url = `https://api.durka.su/gen?group=${encodeURIComponent(group)}&type=${type}`;
-        if (subgroup) url += `&subgroup=${subgroup}`;
+        let url = isTeacherMode
+            ? `https://api.durka.su/gen_teach?teacher=${encodeURIComponent(entity)}&type=${type}`
+            : `https://api.durka.su/gen?group=${encodeURIComponent(entity)}&type=${type}`;
+
+        if (!isTeacherMode && subgroup) {
+            url += `&subgroup=${subgroup}`;
+        }
+
         if (tomorrow) {
             url += '&tomorrow=true';
         } else if (date) {
@@ -90,28 +156,3 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => copyButton.classList.remove('copied'), 1000);
     }
 });
-
-document.addEventListener('DOMContentLoaded', () => {
-    const helpButtons = document.querySelectorAll('.help-button');
-
-    helpButtons.forEach(button => {
-        const tooltip = button.nextElementSibling;
-
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Закрываем все тултипы сначала
-            document.querySelectorAll('.help-tooltip').forEach(tip => {
-                if (tip !== tooltip) tip.style.display = 'none';
-            });
-            tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
-        });
-
-        // Клик вне тултипа закрывает его
-        document.addEventListener('click', (e) => {
-            if (!button.contains(e.target) && !tooltip.contains(e.target)) {
-                tooltip.style.display = 'none';
-            }
-        });
-    });
-});
-
