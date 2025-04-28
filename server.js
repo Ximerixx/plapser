@@ -1,4 +1,3 @@
-// server.js — с ical-generator и поддержкой TZID
 const express = require("express");
 const ical = require("ical-generator").default;
 const { parseStudent } = require("./parser/parseStudent");
@@ -13,18 +12,9 @@ const TIMEZONE = "Europe/Moscow";
 const allowedTypes = new Set(["json", "json-week", "ics", "ics-week"]);
 
 
+const modernCalFormat = true;
 
-
-
-// function getDateOffset(offset) {
-//     const d = new Date();
-//     d.setDate(d.getDate() + offset);
-//     const year = d.getFullYear();
-//     const month = String(d.getMonth() + 1).padStart(2, "0");
-//     const day = String(d.getDate()).padStart(2, "0");
-//     return `${year}-${month}-${day}`;
-// }
-
+//офсетные дны, генекрат baseDate - опциональный
 
 function getDateOffset(offsetDays = 0, baseDate = null) {
     const d = baseDate ? new Date(baseDate) : new Date();
@@ -34,9 +24,10 @@ function getDateOffset(offsetDays = 0, baseDate = null) {
 
 
 app.get("/gen", async (req, res) => {
-    //const { date, group, type: rawType, tomorrow, subgroup } = req.query;
     const { date, group, type: rawType, tomorrow, subgroup = null } = req.query;
 
+
+//проверка на существование "type " в запросе
     if (!group || !rawType) {
         return res.status(400).send("Need: group, type (+ date or tomorrow/ics-week)");
     }
@@ -47,24 +38,24 @@ app.get("/gen", async (req, res) => {
         return res.status(400).send("Bad type. Allowed: json, json-week, ics, ics-week");
     }
 
+    //танцы с датой
     let baseDate;
-
-    if (tomorrow === "true") {
+    if (tomorrow === "true") { //если в запросе просят завтра отдаем // YYYY-MM-DD // в парсер как baseDate
         baseDate = getDateOffset(1, baseDate);
     } else if (date) {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { //если регулярка не проверила - нам дали кривую дату
             return res.status(400).send("Bad date format. Use YYYY-MM-DD");
         }
         baseDate = date;
     } else {
-        baseDate = getDateOffset(0); // сегодня
+        baseDate = getDateOffset(0); // ну, просто потому чтобы не падало, пусть лучше сегодня будет чем 500
     }
 
     try {
         if (type === "json" || type === "json-week") {
             const daysToGenerate = type === "json-week" ? 7 : 1;
             const result = {};
-
+                                // todo - паковать бля сразу все, а не дергать за хуй семь раз, но пока так
             for (let i = 0; i < daysToGenerate; i++) {
                 const day = getDateOffset(i, baseDate);
                 const fullData = await parseStudent(day, group);
@@ -76,7 +67,8 @@ app.get("/gen", async (req, res) => {
             return res.json(result);
         }
 
-
+        //если не json то нам сюда
+        //rem - надо бы если честно оформлять это в if (ics) или типа того, но у меня была проверка до этого...
         const calendar = ical({
             name: `Расписание для ${group}`,
             timezone: TIMEZONE
@@ -180,14 +172,24 @@ app.get("/gen_teach", async (req, res) => {
                 const [hourEnd, minEnd] = endTime.split(":").map(Number);
                 const [year, month, dayNum] = day.split("-").map(Number);
 
-                calendar.createEvent({
+                if (modernCalFormat)
+                {
+                    calendar.createEvent({
+                        start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                        end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                        summary: lesson.subject || "Занятие",
+                        description: `${lesson.room || ""} ${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
+                        location: lesson.room || "",
+                        timezone: TIMEZONE});
+                } 
+                else if (!modernCalFormat)
+                {   calendar.createEvent({
                     start: new Date(year, month - 1, dayNum, hourStart, minStart),
                     end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
                     summary: lesson.subject || "Занятие",
                     description: `${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
                     location: lesson.room || "",
-                    timezone: TIMEZONE
-                });
+                    timezone: TIMEZONE});}
             }
         }
 
