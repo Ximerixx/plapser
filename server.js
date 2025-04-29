@@ -27,7 +27,7 @@ app.get("/gen", async (req, res) => {
     const { date, group, type: rawType, tomorrow, subgroup = null } = req.query;
 
 
-//проверка на существование "type " в запросе
+    //проверка на существование "type " в запросе
     if (!group || !rawType) {
         return res.status(400).send("Need: group, type (+ date or tomorrow/ics-week)");
     }
@@ -41,7 +41,7 @@ app.get("/gen", async (req, res) => {
     //танцы с датой
     let baseDate;
     if (tomorrow === "true") { //если в запросе просят завтра отдаем // YYYY-MM-DD // в парсер как baseDate
-        baseDate = getDateOffset(1, baseDate);
+        baseDate = getDateOffset(0, baseDate);
     } else if (date) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { //если регулярка не проверила - нам дали кривую дату
             return res.status(400).send("Bad date format. Use YYYY-MM-DD");
@@ -55,7 +55,7 @@ app.get("/gen", async (req, res) => {
         if (type === "json" || type === "json-week") {
             const daysToGenerate = type === "json-week" ? 7 : 1;
             const result = {};
-                                // todo - паковать бля сразу все, а не дергать за хуй семь раз, но пока так
+            // todo - паковать бля сразу все, а не дергать за хуй семь раз, но пока так
             for (let i = 0; i < daysToGenerate; i++) {
                 const day = getDateOffset(i, baseDate);
                 const fullData = await parseStudent(day, group);
@@ -87,14 +87,25 @@ app.get("/gen", async (req, res) => {
                 const [hourEnd, minEnd] = endTime.split(":").map(Number);
                 const [year, month, dayNum] = day.split("-").map(Number);
 
-                calendar.createEvent({
-                    start: new Date(year, month - 1, dayNum, hourStart, minStart),
-                    end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
-                    summary: lesson.name + (lesson.type ? ` (${lesson.type})` : ""),
-                    description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
-                    location: lesson.classroom,
-                    timezone: TIMEZONE
-                });
+                if (modernCalFormat) {
+                    calendar.createEvent({
+                        start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                        end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                        summary: lesson.name + (lesson.type ? ` (${lesson.type})` : "") + lesson.classroom,
+                        description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
+                        location: lesson.classroom,
+                        timezone: TIMEZONE
+                    });
+                } else if (!modernCalFormat) {
+                    calendar.createEvent({
+                        start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                        end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                        summary: lesson.name + (lesson.type ? ` (${lesson.type})` : ""),
+                        description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
+                        location: lesson.classroom,
+                        timezone: TIMEZONE
+                    });
+                }
             }
         }
 
@@ -127,14 +138,14 @@ app.get("/gen_teach", async (req, res) => {
     let baseDate;
 
     if (tomorrow === "true") {
-        baseDate = getDateOffset(1);
+        baseDate = getDateOffset(0, baseDate);
     } else if (date) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             return res.status(400).send("Bad date format. Use YYYY-MM-DD");
         }
         baseDate = date;
     } else {
-        baseDate = getDateOffset(0); // сегодня
+        baseDate = getDateOffset(0, baseDate); // сегодня
     }
 
     try {
@@ -172,24 +183,26 @@ app.get("/gen_teach", async (req, res) => {
                 const [hourEnd, minEnd] = endTime.split(":").map(Number);
                 const [year, month, dayNum] = day.split("-").map(Number);
 
-                if (modernCalFormat)
-                {
+                if (modernCalFormat) {
                     calendar.createEvent({
                         start: new Date(year, month - 1, dayNum, hourStart, minStart),
                         end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
                         summary: lesson.subject || "Занятие",
                         description: `${lesson.room || ""} ${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
                         location: lesson.room || "",
-                        timezone: TIMEZONE});
-                } 
-                else if (!modernCalFormat)
-                {   calendar.createEvent({
-                    start: new Date(year, month - 1, dayNum, hourStart, minStart),
-                    end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
-                    summary: lesson.subject || "Занятие",
-                    description: `${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
-                    location: lesson.room || "",
-                    timezone: TIMEZONE});}
+                        timezone: TIMEZONE
+                    });
+                }
+                else if (!modernCalFormat) {
+                    calendar.createEvent({
+                        start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                        end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                        summary: lesson.subject || "Занятие",
+                        description: `${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
+                        location: lesson.room || "",
+                        timezone: TIMEZONE
+                    });
+                }
             }
         }
 
