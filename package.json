@@ -13,6 +13,7 @@
     "cheerio": "^1.0.0",
     "express": "^5.1.0",
     "ical-generator": "^8.1.1",
-    "ics": "^3.8.1"
+    "ics": "^3.8.1",
+    "web-push": "^3.6.7"
   }
 }

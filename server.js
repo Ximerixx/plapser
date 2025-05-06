@@ -41,7 +41,7 @@ app.get("/gen", async (req, res) => {
     //танцы с датой
     let baseDate;
     if (tomorrow === "true") { //если в запросе просят завтра отдаем // YYYY-MM-DD // в парсер как baseDate
-        baseDate = getDateOffset(0, baseDate);
+        baseDate = getDateOffset(1, baseDate);
     } else if (date) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { //если регулярка не проверила - нам дали кривую дату
             return res.status(400).send("Bad date format. Use YYYY-MM-DD");
@@ -138,7 +138,7 @@ app.get("/gen_teach", async (req, res) => {
     let baseDate;
 
     if (tomorrow === "true") {
-        baseDate = getDateOffset(0, baseDate);
+        baseDate = getDateOffset(1, baseDate);
     } else if (date) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             return res.status(400).send("Bad date format. Use YYYY-MM-DD");
