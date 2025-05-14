@@ -10,7 +10,7 @@
 
 Вам нужень vps или любой другой сервер на любой другой платформе и ОС которая может в node.JS 
 
-я люблю n поэтому -> (sudo) apt install curl git make -y && (sudo) curl -L <https://bit.ly/n-install> | bash -s -- -y  
+я люблю n поэтому -> ```(sudo) apt install curl git make -y && (sudo) curl -L <https://bit.ly/n-install> | bash -s -- -y  ```
 терь мой высер  
 качаем - git clone <https://github.com/Ximerixx/plapser.git>  
 ставим штуки - npm install  
