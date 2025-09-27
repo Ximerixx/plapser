@@ -21,7 +21,12 @@ function getDateOffset(offsetDays = 0, baseDate = null) {
     d.setDate(d.getDate() + offsetDays);
     return d.toISOString().split('T')[0]; // YYYY-MM-DD
 }
-
+  const cors = require('cors');
+  app.use(cors({
+    origin: 'https://durka.su', // or '*' for all origins
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
 
 app.get("/gen", async (req, res) => {
     const { date, group, type: rawType, tomorrow, subgroup = null } = req.query;
