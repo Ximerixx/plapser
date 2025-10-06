@@ -134,12 +134,12 @@
 
         <div class="input-group">
             <input type="date" id="date" class="input-field" placeholder=" ">
-            <label class="input-label">Дата (необязательно)</label>
+            <label class="input-label">Дата</label>
         </div>
 
         <div class="checkbox-container">
             <input type="checkbox" id="weekParsing" class="checkbox">
-            <label for="weekParsing">Получить данные на неделю (более эффективно)</label>
+            <label for="weekParsing">Получить данные на неделю </label>
         </div>
 
         <button id="search-teacher" class="button">Найти преподавателя</button>
@@ -219,12 +219,12 @@
                 const weekParsing = weekParsingCheckbox.checked;
 
                 if (!teacher) {
-                    alert('Пожалуйста, выберите преподавателя');
+                    alert('Пожалуйста, выберите');
                     return;
                 }
 
                 resultsDiv.style.display = 'block';
-                resultsDiv.innerHTML = '<div class="loading">Поиск преподавателя...</div>';
+                resultsDiv.innerHTML = '<div class="loading">Поиск...</div>';
 
                 try {
                     // Choose API type based on checkbox

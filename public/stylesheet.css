@@ -1,7 +1,7 @@
 :root {
-    --primary: #6200ee;
-    --primary-hover: #3700b3;
-    --secondary: #03dac6;
+    --primary: #7131c0;
+    --primary-hover: #3b147e;
+    --secondary: #0d7c71;
     --error: #b00020;
     --text: #212121;
     --text-light: #666;
@@ -15,9 +15,9 @@
 
 /* Dark theme variables */
 [data-theme="dark"] {
-    --primary: #bb86fc;
-    --primary-hover: #985eff;
-    --secondary: #03dac6;
+    --primary: #742dca;
+    --primary-hover: #3b147e;
+    --secondary: #307a73;
     --error: #cf6679;
     --text: #ffffff;
     --text-light: #b0b0b0;
