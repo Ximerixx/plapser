@@ -300,6 +300,71 @@ app.get('/gui', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'gui.html'));
 });
 
+// Search for teacher location today
+app.get('/searchTeach', async (req, res) => {
+    const { teacher } = req.query;
+
+    if (!teacher) {
+        return res.status(400).json({ error: 'Teacher parameter is required' });
+    }
+
+    try {
+        const today = getDateOffset(0); // Get today's date
+        const teacherSchedule = await parseTeacher(today, teacher);
+        
+        if (!teacherSchedule || !teacherSchedule[today]) {
+            return res.json({
+                teacher: teacher,
+                date: today,
+                message: 'No lessons found for today',
+                lessons: []
+            });
+        }
+
+        const lessons = teacherSchedule[today].lessons || [];
+        const activeLessons = lessons.filter(lesson => 
+            lesson.time && 
+            lesson.time.includes('-') && 
+            lesson.room && 
+            lesson.group
+        );
+
+        // Format response for easy display
+        const formattedLessons = activeLessons.map(lesson => ({
+            time: lesson.time,
+            subject: lesson.subject || 'Занятие',
+            room: lesson.room,
+            group: lesson.group,
+            note: lesson.note || ''
+        }));
+
+        res.json({
+            teacher: teacher,
+            date: today,
+            dayOfWeek: teacherSchedule[today].dayOfWeek,
+            lessons: formattedLessons,
+            totalLessons: formattedLessons.length
+        });
+
+    } catch (error) {
+        console.error('Error searching for teacher:', error);
+        res.status(500).json({ 
+            error: 'Failed to search for teacher location',
+            message: error.message 
+        });
+    }
+});
+
+// Роут для поиска преподавателя
+app.get('/searchTeacher', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'searchTeacher.html'));
+});
+
+// Роут для поиска расписания группы
+app.get('/searchStudent', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'searchStudent.html'));
+});
+
 
 
 app.listen(port, () => {

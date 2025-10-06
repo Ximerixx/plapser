@@ -9,8 +9,24 @@
 </head>
 
 <body>
+    <!-- Theme Toggle Button -->
+    <div class="theme-toggle">
+        <button id="theme-toggle" class="theme-toggle-button" title="Переключить тему">
+            🌙
+        </button>
+    </div>
+
     <div class="container">
         <h1>Генератор расписания</h1>
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/searchStudent" class="button" style="display: inline-block; text-decoration: none; margin-right: 10px;">
+                Расписание для студентов
+            </a>
+            <a href="/searchTeacher" class="button" style="display: inline-block; text-decoration: none;">
+                А где препод?
+            </a>
+        </div>
 
         <!-- <div class="input-group">
             <select id="group" class="input-field" required>
@@ -109,6 +125,33 @@
     </div>
 
     <script src="gen.js"></script>
+    <script>
+        // Theme functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const body = document.body;
+            
+            // Load saved theme or default to light
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            body.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+            
+            // Theme toggle event listener
+            themeToggle.addEventListener('click', function() {
+                const currentTheme = body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+            
+            function updateThemeIcon(theme) {
+                themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+                themeToggle.title = theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему';
+            }
+        });
+    </script>
 </body>
 
 </html>

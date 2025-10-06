@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск расписания группы</title>
+    <link rel="stylesheet" href="stylesheet.css">
+    <style>
+        .results-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--border-light);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .lesson-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .lesson-time {
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 18px;
+        }
+        
+        .lesson-details {
+            margin-top: 8px;
+            color: var(--text);
+            transition: color 0.3s ease;
+        }
+        
+        .lesson-room {
+            background: var(--secondary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .lesson-subject {
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .lesson-teacher {
+            background: var(--text-light);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        
+        .no-lessons {
+            text-align: center;
+            color: var(--text-light);
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .group-info {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .group-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .search-date {
+            color: var(--text-light);
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+            transition: color 0.3s ease;
+        }
+        
+        .error {
+            background: var(--error);
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--error);
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Theme Toggle Button -->
+    <div class="theme-toggle">
+        <button id="theme-toggle" class="theme-toggle-button" title="Переключить тему">
+            🌙
+        </button>
+    </div>
+
+    <div class="container">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/gui" class="button" style="display: inline-block; text-decoration: none; background: var(--text-light);">
+                ← Назад к генератору
+            </a>
+        </div>
+        
+        <h1>Поиск расписания группы</h1>
+        <p style="text-align: center; color: var(--text-light); margin-bottom: 30px;">
+            Найдите расписание занятий для группы
+        </p>
+
+        <div class="input-group">
+            <input type="text" id="group" class="input-field" placeholder=" ">
+            <button id="clear-group" class="button secondary small-button">×</button>
+            <label class="input-label">Группа</label>
+            <ul id="group-list" class="dropdown"></ul>
+        </div>
+
+        <div class="row">
+            <div class="input-group">
+                <input type="number" id="subgroup" class="input-field" placeholder=" " min="1" max="2">
+                <label class="input-label">Подгруппа (необязательно)</label>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="tomorrow" class="checkbox">
+                <label for="tomorrow">На завтра</label>
+            </div>
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="weekSchedule" class="checkbox">
+            <label for="weekSchedule">Расписание на неделю</label>
+        </div>
+
+        <div class="input-group">
+            <input type="date" id="date" class="input-field" placeholder=" ">
+            <label class="input-label">Дата (необязательно)</label>
+        </div>
+
+        <button id="search-group" class="button">Найти расписание</button>
+
+        <div id="results" style="display: none;">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const groupInput = document.getElementById('group');
+            const groupList = document.getElementById('group-list');
+            const subgroupInput = document.getElementById('subgroup');
+            const dateInput = document.getElementById('date');
+            const tomorrowCheckbox = document.getElementById('tomorrow');
+            const weekScheduleCheckbox = document.getElementById('weekSchedule');
+            const searchButton = document.getElementById('search-group');
+            const resultsDiv = document.getElementById('results');
+            const clearButton = document.getElementById('clear-group');
+
+            let allGroups = [];
+
+            const today = new Date();
+            dateInput.valueAsDate = today;
+
+            clearButton.addEventListener('click', function (e) {
+                e.preventDefault();
+                clearGroupInput();
+            });
+
+            function clearGroupInput() {
+                groupInput.value = '';
+                groupList.innerHTML = '';
+                resultsDiv.style.display = 'none';
+            }
+
+            groupInput.addEventListener('input', updateDropdown);
+            searchButton.addEventListener('click', searchGroup);
+
+            tomorrowCheckbox.addEventListener('change', function () {
+                dateInput.disabled = this.checked;
+                if (this.checked) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    dateInput.valueAsDate = tomorrow;
+                }
+            });
+
+            async function fetchGroups() {
+                try {
+                    const response = await fetch('/api/groups');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    allGroups = await response.json();
+                    updateDropdown();
+                } catch (error) {
+                    console.error('Ошибка загрузки групп:', error);
+                    alert('Не удалось загрузить список групп.');
+                }
+            }
+
+            function updateDropdown() {
+                const value = groupInput.value.toLowerCase();
+                groupList.innerHTML = '';
+
+                if (!value) return;
+
+                const filtered = allGroups.filter(group =>
+                    group.toLowerCase().includes(value)
+                ).slice(0, 10);
+
+                filtered.forEach(group => {
+                    const li = document.createElement('li');
+                    li.textContent = group;
+                    li.classList.add('dropdown-item');
+                    li.addEventListener('click', () => {
+                        groupInput.value = group;
+                        groupList.innerHTML = '';
+                    });
+                    groupList.appendChild(li);
+                });
+            }
+
+            async function searchGroup() {
+                const group = groupInput.value.trim();
+                const subgroup = subgroupInput.value;
+                const date = dateInput.value;
+                const tomorrow = tomorrowCheckbox.checked;
+                const weekSchedule = weekScheduleCheckbox.checked;
+
+                if (!group) {
+                    alert('Пожалуйста, выберите группу');
+                    return;
+                }
+
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = '<div class="loading">Поиск расписания...</div>';
+
+                try {
+                    let url = `/gen?group=${encodeURIComponent(group)}&type=${weekSchedule ? 'json-week' : 'json'}`;
+                    
+                    if (subgroup) {
+                        url += `&subgroup=${subgroup}`;
+                    }
+
+                    if (tomorrow) {
+                        url += '&tomorrow=true';
+                    } else if (date) {
+                        url += `&date=${date}`;
+                    }
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Ошибка при поиске расписания');
+                    }
+
+                    displayResults(data, group, date, tomorrow, weekSchedule);
+
+                } catch (error) {
+                    console.error('Ошибка поиска:', error);
+                    resultsDiv.innerHTML = `
+                        <div class="error">
+                            <strong>Ошибка:</strong> ${error.message}
+                        </div>
+                    `;
+                }
+            }
+
+            function displayResults(data, group, date, tomorrow, weekSchedule) {
+                let html = `
+                    <div class="results-container">
+                        <div class="group-info">
+                            <div class="group-name">${group}</div>
+                            <div class="search-date">${weekSchedule ? 'Расписание на неделю' : (tomorrow ? 
+                                new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 
+                                (date || new Date().toISOString().split('T')[0]))}</div>
+                        </div>
+                `;
+
+                if (weekSchedule) {
+                    // Display week schedule
+                    const dates = Object.keys(data).sort();
+                    let totalLessons = 0;
+
+                    dates.forEach(dateKey => {
+                        const dayData = data[dateKey];
+                        if (dayData && dayData.lessons) {
+                            const activeLessons = dayData.lessons.filter(lesson => 
+                                lesson.time && lesson.time.includes('-') && lesson.name
+                            );
+                            
+                            if (activeLessons.length > 0) {
+                                totalLessons += activeLessons.length;
+                                html += `
+                                    <div style="margin: 20px 0;">
+                                        <h3 style="color: var(--primary); margin-bottom: 10px;">
+                                            ${dayData.date} (${dayData.dayOfWeek})
+                                        </h3>
+                                `;
+
+                                activeLessons.forEach(lesson => {
+                                    html += `
+                                        <div class="lesson-card">
+                                            <div class="lesson-time">${lesson.time}</div>
+                                            <div class="lesson-details">
+                                                <span class="lesson-subject">${lesson.name}</span>
+                                                ${lesson.type ? `<span class="lesson-subject">${lesson.type}</span>` : ''}
+                                                <span class="lesson-room">${lesson.classroom}</span>
+                                                <span class="lesson-teacher">${lesson.teacher}</span>
+                                                ${lesson.subgroup ? `<br><small>П/г: ${lesson.subgroup}</small>` : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+
+                                html += `</div>`;
+                            }
+                        }
+                    });
+
+                    if (totalLessons === 0) {
+                        html += `
+                            <div class="no-lessons">
+                                У группы нет занятий на этой неделе
+                            </div>
+                        `;
+                    } else {
+                        html = `
+                            <div class="results-container">
+                                <div class="group-info">
+                                    <div class="group-name">${group}</div>
+                                    <div class="search-date">Расписание на неделю</div>
+                                    <div style="margin-top: 10px; font-size: 14px;">
+                                        <strong>Всего занятий: ${totalLessons}</strong>
+                                    </div>
+                                </div>
+                                ${html.split('<div class="group-info">')[1]}
+                        `;
+                    }
+                } else {
+                    // Display single day schedule
+                    const searchDate = tomorrow ? 
+                        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 
+                        (date || new Date().toISOString().split('T')[0]);
+
+                    const dayLessons = data[searchDate];
+                    
+                    if (!dayLessons || !dayLessons.lessons || dayLessons.lessons.length === 0) {
+                        html += `
+                            <div class="no-lessons">
+                                У группы нет занятий в этот день
+                            </div>
+                        `;
+                    } else {
+                        const activeLessons = dayLessons.lessons.filter(lesson => 
+                            lesson.time && lesson.time.includes('-') && lesson.name
+                        );
+
+                        html += `
+                            <div style="margin-bottom: 15px; text-align: center;">
+                                <strong>Найдено занятий: ${activeLessons.length}</strong>
+                            </div>
+                        `;
+
+                        activeLessons.forEach(lesson => {
+                            html += `
+                                <div class="lesson-card">
+                                    <div class="lesson-time">${lesson.time}</div>
+                                    <div class="lesson-details">
+                                        <span class="lesson-subject">${lesson.name}</span>
+                                        ${lesson.type ? `<span class="lesson-subject">${lesson.type}</span>` : ''}
+                                        <span class="lesson-room">${lesson.classroom}</span>
+                                        <span class="lesson-teacher">${lesson.teacher}</span>
+                                        ${lesson.subgroup ? `<br><small>П/г: ${lesson.subgroup}</small>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            }
+
+            // Load groups on page load
+            fetchGroups();
+        });
+
+        // Theme functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const body = document.body;
+            
+            // Load saved theme or default to light
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            body.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+            
+            // Theme toggle event listener
+            themeToggle.addEventListener('click', function() {
+                const currentTheme = body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+            
+            function updateThemeIcon(theme) {
+                themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+                themeToggle.title = theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему';
+            }
+        });
+    </script>
+</body>
+
+</html>

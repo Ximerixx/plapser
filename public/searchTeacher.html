@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск преподавателя</title>
+    <link rel="stylesheet" href="stylesheet.css">
+    <style>
+        .results-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--border-light);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .lesson-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .lesson-time {
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 18px;
+        }
+        
+        .lesson-details {
+            margin-top: 8px;
+            color: var(--text);
+            transition: color 0.3s ease;
+        }
+        
+        .lesson-room {
+            background: var(--secondary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .lesson-group {
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        
+        .no-lessons {
+            text-align: center;
+            color: var(--text-light);
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .teacher-info {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .teacher-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .search-date {
+            color: var(--text-light);
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+            transition: color 0.3s ease;
+        }
+        
+        .error {
+            background: var(--error);
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--error);
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Theme Toggle Button -->
+    <div class="theme-toggle">
+        <button id="theme-toggle" class="theme-toggle-button" title="Переключить тему">
+            🌙
+        </button>
+    </div>
+
+    <div class="container">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/gui" class="button" style="display: inline-block; text-decoration: none; background: var(--text-light);">
+                ← Назад к генератору
+            </a>
+        </div>
+        
+        <h1>Где препод?</h1>
+        <p style="text-align: center; color: var(--text-light); margin-bottom: 30px;">
+            Найдите где бухает ваш преподаватель сегодня
+        </p>
+
+        <div class="input-group">
+            <input type="text" id="teacher" class="input-field" placeholder=" ">
+            <button id="clear-teacher" class="button secondary small-button">×</button>
+            <label class="input-label">Преподаватель</label>
+            <ul id="teacher-list" class="dropdown"></ul>
+        </div>
+
+
+        <div class="input-group">
+            <input type="date" id="date" class="input-field" placeholder=" ">
+            <label class="input-label">Дата (необязательно)</label>
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="weekParsing" class="checkbox">
+            <label for="weekParsing">Получить данные на неделю (более эффективно)</label>
+        </div>
+
+        <button id="search-teacher" class="button">Найти преподавателя</button>
+
+        <div id="results" style="display: none;">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const teacherInput = document.getElementById('teacher');
+            const teacherList = document.getElementById('teacher-list');
+            const dateInput = document.getElementById('date');
+            const weekParsingCheckbox = document.getElementById('weekParsing');
+            const clearButton = document.getElementById('clear-teacher');
+            const searchButton = document.getElementById('search-teacher');
+            const resultsDiv = document.getElementById('results');
+
+            let allTeachers = [];
+
+            const today = new Date();
+            dateInput.valueAsDate = today;
+
+            clearButton.addEventListener('click', function (e) {
+                e.preventDefault();
+                clearTeacherInput();
+            });
+
+            function clearTeacherInput() {
+                teacherInput.value = '';
+                teacherList.innerHTML = '';
+                resultsDiv.style.display = 'none';
+            }
+
+            teacherInput.addEventListener('input', updateDropdown);
+
+            searchButton.addEventListener('click', searchTeacher);
+
+            async function fetchTeachers() {
+                try {
+                    const response = await fetch('/api/teachers');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    allTeachers = await response.json();
+                    updateDropdown();
+                } catch (error) {
+                    console.error('Ошибка загрузки преподавателей:', error);
+                    alert('Не удалось загрузить список преподавателей.');
+                }
+            }
+
+            function updateDropdown() {
+                const value = teacherInput.value.toLowerCase();
+                teacherList.innerHTML = '';
+
+                if (!value) return;
+
+                const filtered = allTeachers.filter(teacher =>
+                    teacher.toLowerCase().includes(value)
+                ).slice(0, 10);
+
+                filtered.forEach(teacher => {
+                    const li = document.createElement('li');
+                    li.textContent = teacher;
+                    li.classList.add('dropdown-item');
+                    li.addEventListener('click', () => {
+                        teacherInput.value = teacher;
+                        teacherList.innerHTML = '';
+                    });
+                    teacherList.appendChild(li);
+                });
+            }
+
+            async function searchTeacher() {
+                const teacher = teacherInput.value.trim();
+                const date = dateInput.value;
+                const weekParsing = weekParsingCheckbox.checked;
+
+                if (!teacher) {
+                    alert('Пожалуйста, выберите преподавателя');
+                    return;
+                }
+
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = '<div class="loading">Поиск преподавателя...</div>';
+
+                try {
+                    // Choose API type based on checkbox
+                    const apiType = weekParsing ? 'json-week' : 'json';
+                    let url = `/gen_teach?teacher=${encodeURIComponent(teacher)}&type=${apiType}`;
+                    
+                    if (date) {
+                        url += `&date=${date}`;
+                    }
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Ошибка при поиске преподавателя');
+                    }
+
+                    displayResults(data, teacher, date, weekParsing);
+
+                } catch (error) {
+                    console.error('Ошибка поиска:', error);
+                    resultsDiv.innerHTML = `
+                        <div class="error">
+                            <strong>Ошибка:</strong> ${error.message}
+                        </div>
+                    `;
+                }
+            }
+
+            function displayResults(data, teacher, searchDate, weekParsing) {
+                let html = `
+                    <div class="results-container">
+                        <div class="teacher-info">
+                            <div class="teacher-name">${teacher}</div>
+                            <div class="search-date">${weekParsing ? 'Расписание на неделю' : (searchDate || 'Сегодня')}</div>
+                        </div>
+                `;
+
+                if (weekParsing) {
+                    // For week parsing, display all days with lessons
+                    const dates = Object.keys(data).sort();
+                    let totalLessons = 0;
+                    let hasAnyLessons = false;
+
+                    dates.forEach(dateKey => {
+                        const dayData = data[dateKey];
+                        if (dayData && dayData.lessons) {
+                            const activeLessons = dayData.lessons.filter(lesson => 
+                                lesson.time && lesson.time.includes('-') && lesson.room && lesson.group
+                            );
+                            
+                            if (activeLessons.length > 0) {
+                                hasAnyLessons = true;
+                                totalLessons += activeLessons.length;
+                                html += `
+                                    <div style="margin: 20px 0;">
+                                        <h3 style="color: var(--primary); margin-bottom: 10px;">
+                                            ${dayData.date} (${dayData.dayOfWeek})
+                                        </h3>
+                                `;
+
+                                activeLessons.forEach(lesson => {
+                                    html += `
+                                        <div class="lesson-card">
+                                            <div class="lesson-time">${lesson.time}</div>
+                                            <div class="lesson-details">
+                                                <strong>${lesson.subject}</strong><br>
+                                                <span class="lesson-room">${lesson.room}</span>
+                                                <span class="lesson-group">${lesson.group}</span>
+                                                ${lesson.note ? `<br><small>${lesson.note}</small>` : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+
+                                html += `</div>`;
+                            }
+                        }
+                    });
+
+                    if (!hasAnyLessons) {
+                        html += `
+                            <div class="no-lessons">
+                                У преподавателя нет занятий на этой неделе
+                            </div>
+                        `;
+                    } else {
+                        html = `
+                            <div class="results-container">
+                                <div class="teacher-info">
+                                    <div class="teacher-name">${teacher}</div>
+                                    <div class="search-date">Расписание на неделю</div>
+                                    <div style="margin-top: 10px; font-size: 14px;">
+                                        <strong>Всего занятий: ${totalLessons}</strong>
+                                    </div>
+                                </div>
+                                ${html.split('<div class="teacher-info">')[1]}
+                        `;
+                    }
+                } else {
+                    // For single day parsing, display lessons for that day
+                    const targetDate = searchDate || new Date().toISOString().split('T')[0];
+                    const dayData = data[targetDate] || data;
+                    
+                    if (!dayData || !dayData.lessons || dayData.lessons.length === 0) {
+                        html += `
+                            <div class="no-lessons">
+                                У преподавателя нет занятий в этот день
+                            </div>
+                        `;
+                    } else {
+                        const activeLessons = dayData.lessons.filter(lesson => 
+                            lesson.time && lesson.time.includes('-') && lesson.room && lesson.group
+                        );
+
+                        html += `
+                            <div style="margin-bottom: 15px; text-align: center;">
+                                <strong>Найдено занятий: ${activeLessons.length}</strong>
+                            </div>
+                        `;
+
+                        activeLessons.forEach(lesson => {
+                            html += `
+                                <div class="lesson-card">
+                                    <div class="lesson-time">${lesson.time}</div>
+                                    <div class="lesson-details">
+                                        <strong>${lesson.subject}</strong><br>
+                                        <span class="lesson-room">${lesson.room}</span>
+                                        <span class="lesson-group">${lesson.group}</span>
+                                        ${lesson.note ? `<br><small>${lesson.note}</small>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            }
+
+            // Load teachers on page load
+            fetchTeachers();
+        });
+
+        // Theme functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const body = document.body;
+            
+            // Load saved theme or default to light
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            body.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+            
+            // Theme toggle event listener
+            themeToggle.addEventListener('click', function() {
+                const currentTheme = body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+            
+            function updateThemeIcon(theme) {
+                themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+                themeToggle.title = theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему';
+            }
+        });
+    </script>
+</body>
+
+</html>
