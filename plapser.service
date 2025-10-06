@@ -1,0 +1,16 @@
+[Unit]
+Description=VGLTUparsernodejsapp 
+After=network.target
+
+[Service]
+ExecStart=/root/n/bin/node /root/plapser/server.js
+WorkingDirectory=/root/plapser/
+Restart=always
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=inherit
+KillMode=process
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
