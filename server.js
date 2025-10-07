@@ -1,6 +1,7 @@
 const express = require("express");
 const ical = require("ical-generator").default;
 const { parseStudent } = require("./parser/parseStudent");
+const fs = require('fs');
 
 const path = require('path');
 const { parseTeacher } = require("./parser/parseTeacher");
@@ -11,8 +12,12 @@ const TIMEZONE = "Europe/Moscow";
 
 const allowedTypes = new Set(["json", "json-week", "ics", "ics-week"]);
 
-
 const modernCalFormat = true;
+
+// Configuration for Nextcloud plugin serving
+const serveNextcloudPlugin = true //false
+const nextcloudPluginPath = './next_plugin.tar.gz'
+
 
 //офсетные дны, генекрат baseDate - опциональный
 
@@ -21,12 +26,12 @@ function getDateOffset(offsetDays = 0, baseDate = null) {
     d.setDate(d.getDate() + offsetDays);
     return d.toISOString().split('T')[0]; // YYYY-MM-DD
 }
-  const cors = require('cors');
-  app.use(cors({
+const cors = require('cors');
+app.use(cors({
     origin: 'https://durka.su', // or '*' for all origins
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
-  }));
+}));
 
 app.get("/gen", async (req, res) => {
     const { date, group, type: rawType, tomorrow, subgroup = null } = req.query;
@@ -311,7 +316,7 @@ app.get('/searchTeach', async (req, res) => {
     try {
         const today = getDateOffset(0); // Get today's date
         const teacherSchedule = await parseTeacher(today, teacher);
-        
+
         if (!teacherSchedule || !teacherSchedule[today]) {
             return res.json({
                 teacher: teacher,
@@ -322,10 +327,10 @@ app.get('/searchTeach', async (req, res) => {
         }
 
         const lessons = teacherSchedule[today].lessons || [];
-        const activeLessons = lessons.filter(lesson => 
-            lesson.time && 
-            lesson.time.includes('-') && 
-            lesson.room && 
+        const activeLessons = lessons.filter(lesson =>
+            lesson.time &&
+            lesson.time.includes('-') &&
+            lesson.room &&
             lesson.group
         );
 
@@ -348,9 +353,9 @@ app.get('/searchTeach', async (req, res) => {
 
     } catch (error) {
         console.error('Error searching for teacher:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to search for teacher location',
-            message: error.message 
+            message: error.message
         });
     }
 });
@@ -365,8 +370,51 @@ app.get('/searchStudent', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'searchStudent.html'));
 });
 
+// Marketplace routes for Nextcloud plugin
+if (serveNextcloudPlugin) {
+    console.log(`Nextcloud plugin serving enabled. Plugin path: ${nextcloudPluginPath}`);
 
+    // Serve the plugin package
+    app.get('/next_plugin/next_plugin.tar.gz', (req, res) => {
+        const pluginPath = nextcloudPluginPath;
+
+        // Check if plugin package exists
+        if (!fs.existsSync(pluginPath)) {
+            console.error(`Plugin package not found at: ${pluginPath}`);
+            return res.status(404).json({
+                error: 'Plugin package not found',
+                message: 'The Nextcloud plugin package is not available. Please check the configuration.',
+                path: pluginPath
+            });
+        }
+
+        try {
+            // Set appropriate headers for file download
+            res.setHeader('Content-Type', 'application/gzip');
+            res.setHeader('Content-Disposition', 'attachment; filename="next_plugin.tar.gz"');
+            res.setHeader('Content-Length', fs.statSync(pluginPath).size);
+
+            // Stream the file
+            const fileStream = fs.createReadStream(pluginPath);
+            fileStream.pipe(res);
+
+            console.log(`Served plugin package to ${req.ip}`);
+        } catch (error) {
+            console.error('Error serving plugin package:', error);
+            res.status(500).json({
+                error: 'Internal server error',
+                message: 'Failed to serve plugin package'
+            });
+        }
+    });
+
+} else {
+    console.log('Nextcloud plugin serving disabled. Set SERVE_NEXTCLOUD_PLUGIN=true in server.js to enable.');
+}
 
 app.listen(port, () => {
     console.log(`server ok!`);
+    if (serveNextcloudPlugin) {
+        console.log(`Nextcloud plugin available at: http://localhost:${port}/next_plugin/next_plugin.tar.gz or wherever your plapser is hosted`);
+    }
 });
