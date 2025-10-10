@@ -51,23 +51,52 @@ async function parseTeacher(date, teacher) {
                 }
             } else if (cells.length === 2) {
                 const time = $(cells[0]).text().trim();
-                const htmlContent = $(cells[1]).html().split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
-
+                
+                // Get all text content split by <br>
+                const cellContent = $(cells[1]);
+                const htmlContent = cellContent.html().split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
+                
                 let subject = '';
-                let group = null;
-                let room = null;
-
-                if (htmlContent[0]) subject = htmlContent[0];
-                if (htmlContent[1]) group = htmlContent[1];
-
-                const link = $(cells[1]).find('a').text().trim();
-                if (link) room = link;
+                let group = '';
+                let subgroup = '';
+                let room = '';
+                
+                // Parse each line of content
+                htmlContent.forEach((line, index) => {
+                    const cleanText = $('<div>').html(line).text().trim();
+                    
+                    if (index === 0) {
+                        // First line is the subject
+                        subject = cleanText;
+                    } else if (cleanText.includes('п.г.')) {
+                        // This is subgroup info (п.г. = подгруппа)
+                        subgroup = cleanText;
+                    } else if (cleanText && !cleanText.match(/^\d+/)) {
+                        // This looks like a group name (not starting with digits like room numbers)
+                        // Group names usually match pattern like ИС2-244-ОБ
+                        if (cleanText.match(/[А-ЯЁ]{2}\d-\d{3}-[А-ЯЁ]{2}/) || cleanText.length > 3) {
+                            group = cleanText;
+                        }
+                    }
+                });
+                
+                // Extract room from link
+                const link = cellContent.find('a').text().trim();
+                if (link) {
+                    room = link;
+                }
+                
+                // If we only found subgroup but no group, put subgroup in group field
+                if (!group && subgroup) {
+                    group = subgroup;
+                }
 
                 result[dateKey].lessons.push({
                     time,
                     subject,
                     group,
-                    room
+                    room,
+                    subgroup: subgroup || null
                 });
             }
         });

@@ -273,7 +273,7 @@
                         const dayData = data[dateKey];
                         if (dayData && dayData.lessons) {
                             const activeLessons = dayData.lessons.filter(lesson => 
-                                lesson.time && lesson.time.includes('-') && lesson.room && lesson.group
+                                lesson.time && lesson.time.includes('-') && !lesson.status
                             );
                             
                             if (activeLessons.length > 0) {
@@ -289,12 +289,12 @@
                                 activeLessons.forEach(lesson => {
                                     html += `
                                         <div class="lesson-card">
-                                            <div class="lesson-time">${lesson.time}</div>
+                                            <div class="lesson-time">${lesson.time || 'N/A'}</div>
                                             <div class="lesson-details">
-                                                <strong>${lesson.subject}</strong><br>
-                                                <span class="lesson-room">${lesson.room}</span>
-                                                <span class="lesson-group">${lesson.group}</span>
-                                                ${lesson.note ? `<br><small>${lesson.note}</small>` : ''}
+                                                <strong>${lesson.subject || 'Занятие'}</strong><br>
+                                                ${lesson.room ? `<span class="lesson-room"> ${lesson.room}</span>` : ''}
+                                                ${lesson.group ? `<span class="lesson-group"> ${lesson.group}</span>` : ''}
+                                                ${lesson.subgroup ? ` <small>(${lesson.subgroup})</small>` : ''}
                                             </div>
                                         </div>
                                     `;
@@ -337,7 +337,7 @@
                         `;
                     } else {
                         const activeLessons = dayData.lessons.filter(lesson => 
-                            lesson.time && lesson.time.includes('-') && lesson.room && lesson.group
+                            lesson.time && lesson.time.includes('-') && !lesson.status
                         );
 
                         html += `
@@ -349,12 +349,12 @@
                         activeLessons.forEach(lesson => {
                             html += `
                                 <div class="lesson-card">
-                                    <div class="lesson-time">${lesson.time}</div>
+                                    <div class="lesson-time">${lesson.time || 'N/A'}</div>
                                     <div class="lesson-details">
-                                        <strong>${lesson.subject}</strong><br>
-                                        <span class="lesson-room">${lesson.room}</span>
-                                        <span class="lesson-group">${lesson.group}</span>
-                                        ${lesson.note ? `<br><small>${lesson.note}</small>` : ''}
+                                        <strong>${lesson.subject || 'Занятие'}</strong><br>
+                                        ${lesson.room ? `<span class="lesson-room"> ${lesson.room}</span>` : ''}
+                                        ${lesson.group ? `<span class="lesson-group"> ${lesson.group}</span>` : ''}
+                                        ${lesson.subgroup ? ` <small>(${lesson.subgroup})</small>` : ''}
                                     </div>
                                 </div>
                             `;

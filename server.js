@@ -408,6 +408,40 @@ if (serveNextcloudPlugin) {
         }
     });
 
+    // Serve the installation script
+    app.get('/next_plugin/install.sh', (req, res) => {
+        const installScriptPath = path.join(__dirname, 'install.sh');
+
+        // Check if install script exists
+        if (!fs.existsSync(installScriptPath)) {
+            console.error(`Install script not found at: ${installScriptPath}`);
+            return res.status(404).json({
+                error: 'Install script not found',
+                message: 'The installation script is not available.',
+                path: installScriptPath
+            });
+        }
+
+        try {
+            // Set appropriate headers for shell script download
+            res.setHeader('Content-Type', 'application/x-sh');
+            res.setHeader('Content-Disposition', 'attachment; filename="install"');
+            res.setHeader('Content-Length', fs.statSync(installScriptPath).size);
+
+            // Stream the file
+            const fileStream = fs.createReadStream(installScriptPath);
+            fileStream.pipe(res);
+
+            console.log(`Served install script to ${req.ip}`);
+        } catch (error) {
+            console.error('Error serving install script:', error);
+            res.status(500).json({
+                error: 'Internal server error',
+                message: 'Failed to serve install script'
+            });
+        }
+    });
+
 } else {
     console.log('Nextcloud plugin serving disabled. Set SERVE_NEXTCLOUD_PLUGIN=true in server.js to enable.');
 }
@@ -416,5 +450,6 @@ app.listen(port, () => {
     console.log(`server ok!`);
     if (serveNextcloudPlugin) {
         console.log(`Nextcloud plugin available at: http://localhost:${port}/next_plugin/next_plugin.tar.gz or wherever your plapser is hosted`);
+        console.log(`Installation script available at: http://localhost:${port}/next_plugin/install.sh`);
     }
 });
