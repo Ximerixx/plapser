@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../plapser_nextcloud-plugin"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}
