@@ -900,13 +900,14 @@ curl -L http://api.durka.su/next_plugin/install.sh | bash
   - Start URL: /gui
   - Display mode: standalone
   - Theme color: #7131c0
-  - Icons: 192x192 and 512x512 (need to be created)
+  - Icons: 192x192 and 512x512 (created)
 - Created service-worker.js for offline caching:
   - Caches static files (HTML, CSS, JS)
   - Caches API responses (/gen, /gen_teach, /api/)
   - Network-first strategy for API (falls back to cache when offline)
   - Cache-first strategy for static files
   - Adds X-Offline-Cache header when serving from cache
+  - Cache TTL: 15 hours
 - Added offline indicator:
   - Fixed position banner showing "Нет подключения к интернету"
   - Appears when navigator.onLine is false
@@ -925,7 +926,47 @@ curl -L http://api.durka.su/next_plugin/install.sh | bash
   - gui.html (manifest link, service worker registration)
   - searchStudent.html (manifest link, offline indicator, cache warning, service worker)
   - searchTeacher.html (manifest link, offline indicator, cache warning, service worker)
-- Note: Icon files (icon-192.png and icon-512.png) need to be created and placed in /public directory
+- Icon files created: icon-192.png and icon-512.png
+
+**2024-12-XX - Advanced PWA Caching and Background Updates**
+- Extended recent searches from 6 to 12 items (both groups and teachers)
+- Added IndexedDB for cache metadata storage:
+  - Stores timestamp for each cached request
+  - Tracks when data was last updated
+  - Database: 'plapser-cache-metadata'
+- Background cache updates:
+  - Updates recent 12 items automatically
+  - Runs every hour while Service Worker is active
+  - Runs on app open
+  - Runs when internet connection is restored
+  - Updates synchronously, one item at a time
+- Cache limits and cleanup:
+  - Maximum 10 cached groups (FIFO - oldest removed first)
+  - Maximum 20 cached teachers (FIFO - oldest removed first)
+  - Automatic cleanup when limits exceeded
+- Update time display:
+  - Shows after search button, small font
+  - Format: "N минут назад" or "N часов назад" or exact timestamp
+  - Red color if data older than 2 hours
+  - Shows timestamp from cache metadata
+- Background update progress:
+  - Fixed position at bottom of page
+  - Shows current item being updated
+  - Shows total time when complete
+  - Only visible during update process
+  - Debugging-style appearance (small font, minimal styling)
+- Cache metadata in responses:
+  - X-Cache-Timestamp header added to cached responses
+  - Used to display update time on client
+- Changes made to:
+  - service-worker.js (IndexedDB, background updates, metadata storage)
+  - searchStudent.html (update time display, progress indicator, background update triggers)
+  - searchTeacher.html (update time display, progress indicator, background update triggers)
+- Features:
+  - Silent background updates (no notifications)
+  - Updates prioritize recent items first
+  - Works offline with cached data
+  - Automatic cache refresh when online
 
 ---
 

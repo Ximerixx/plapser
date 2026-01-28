@@ -160,6 +160,37 @@
             gap: 8px;
         }
         
+        .update-time {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 8px;
+            text-align: center;
+            transition: color 0.3s ease;
+        }
+        
+        .update-time.stale {
+            color: var(--error);
+        }
+        
+        .update-progress {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 8px 15px;
+            font-size: 11px;
+            color: var(--text-light);
+            z-index: 1000;
+            display: none;
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .update-progress.show {
+            display: block;
+        }
+        
         .recent-teacher-btn {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -227,6 +258,7 @@
         </div>
 
         <button id="search-teacher" class="button">Найти преподавателя</button>
+        <div id="update-time" class="update-time" style="display: none;"></div>
 
         <div id="recent-teachers" class="recent-teachers" style="display: none;">
             <div class="recent-teachers-title">Последние поиски:</div>
@@ -238,6 +270,8 @@
         <div id="results" style="display: none;">
             <!-- Results will be populated here -->
         </div>
+        
+        <div id="update-progress" class="update-progress"></div>
     </div>
 
     <script>
@@ -282,8 +316,8 @@
                 recent = recent.filter(t => t !== teacher);
                 // Add to beginning
                 recent.unshift(teacher);
-                // Keep only last 6
-                recent = recent.slice(0, 6);
+                // Keep only last 12
+                recent = recent.slice(0, 12);
                 
                 setCookie('recent_teachers', encodeURIComponent(JSON.stringify(recent)));
                 displayRecentTeachers();
@@ -408,6 +442,7 @@
                     const cacheAge = response.headers.get('X-Cache-Age');
                     const cacheTTL = response.headers.get('X-Cache-TTL');
                     const offlineCache = response.headers.get('X-Offline-Cache') === 'true';
+                    const cacheTimestamp = response.headers.get('X-Cache-Timestamp');
 
                     // Log request details
                     const logData = {
@@ -435,6 +470,13 @@
                     displayResults(data, teacher, date, weekParsing, offlineCache);
                     // Save to recent teachers
                     saveRecentTeacher(teacher);
+                    
+                    // Show update time
+                    if (cacheTimestamp) {
+                        showUpdateTime(parseInt(cacheTimestamp));
+                    } else {
+                        showUpdateTime(Date.now());
+                    }
 
                 } catch (error) {
                     const requestEndTime = performance.now();
@@ -620,6 +662,139 @@
             window.addEventListener('appinstalled', () => {
                 console.log('[PWA] App installed');
                 deferredPrompt = null;
+            });
+
+            // Update time display
+            const updateTimeDiv = document.getElementById('update-time');
+            
+            function showUpdateTime(timestamp) {
+                if (!updateTimeDiv) return;
+                
+                const now = Date.now();
+                const diff = now - timestamp;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(minutes / 60);
+                
+                let timeText;
+                if (minutes < 1) {
+                    timeText = 'сейчас';
+                } else if (minutes < 60) {
+                    timeText = `${minutes} минут назад`;
+                } else if (hours < 24) {
+                    timeText = `${hours} часов назад`;
+                } else {
+                    const date = new Date(timestamp);
+                    timeText = `Обновлено ${date.toLocaleString('ru-RU', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}`;
+                }
+                
+                updateTimeDiv.textContent = timeText;
+                updateTimeDiv.style.display = 'block';
+                
+                // Красный цвет если больше 2 часов
+                if (hours >= 2) {
+                    updateTimeDiv.classList.add('stale');
+                } else {
+                    updateTimeDiv.classList.remove('stale');
+                }
+            }
+
+            // Update progress display
+            const updateProgressDiv = document.getElementById('update-progress');
+            let updateProgress = {
+                current: null,
+                startTime: null,
+                total: 0,
+                completed: 0
+            };
+
+            function showUpdateProgress(item, itemType, total) {
+                if (!updateProgressDiv) return;
+                
+                updateProgress.current = item;
+                updateProgress.total = total;
+                if (!updateProgress.startTime) {
+                    updateProgress.startTime = Date.now();
+                }
+                
+                updateProgressDiv.classList.add('show');
+                updateProgressDiv.textContent = `Обновление: ${itemType === 'group' ? 'группа' : 'преподаватель'} ${item}...`;
+            }
+
+            function hideUpdateProgress() {
+                if (!updateProgressDiv) return;
+                
+                if (updateProgress.startTime) {
+                    const duration = ((Date.now() - updateProgress.startTime) / 1000).toFixed(1);
+                    updateProgressDiv.textContent = `Обновление завершено за ${duration}с`;
+                    setTimeout(() => {
+                        updateProgressDiv.classList.remove('show');
+                        updateProgress.startTime = null;
+                        updateProgress.current = null;
+                        updateProgress.total = 0;
+                        updateProgress.completed = 0;
+                    }, 2000);
+                } else {
+                    updateProgressDiv.classList.remove('show');
+                }
+            }
+
+            // Background update on app open
+            async function startBackgroundUpdate() {
+                if (!navigator.onLine) {
+                    console.log('[Client] Background update skipped - offline');
+                    return;
+                }
+
+                const recentGroups = [];
+                const recentTeachers = getRecentTeachers();
+                
+                if (recentGroups.length === 0 && recentTeachers.length === 0) {
+                    return;
+                }
+
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'START_BACKGROUND_UPDATE',
+                        recentGroups: recentGroups,
+                        recentTeachers: recentTeachers
+                    });
+                }
+            }
+
+            // Listen for messages from Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data.type === 'CACHE_UPDATED') {
+                        const { item, itemType, total } = event.data;
+                        showUpdateProgress(item, itemType, total || 12);
+                    } else if (event.data.type === 'CACHE_UPDATE_COMPLETE') {
+                        hideUpdateProgress();
+                    } else if (event.data.type === 'GET_RECENT_ITEMS') {
+                        // Отправляем недавние элементы в Service Worker
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({
+                                type: 'GET_RECENT_ITEMS_RESPONSE',
+                                recentGroups: [],
+                                recentTeachers: getRecentTeachers()
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Start background update on page load
+            startBackgroundUpdate();
+
+            // Update on online
+            window.addEventListener('online', () => {
+                console.log('[Client] Online - starting background update');
+                startBackgroundUpdate();
             });
         });
 
