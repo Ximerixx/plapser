@@ -101,6 +101,45 @@
             border: 1px solid var(--error);
             transition: background-color 0.3s ease;
         }
+        
+        .recent-teachers {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .recent-teachers-title {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+            transition: color 0.3s ease;
+        }
+        
+        .recent-teachers-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .recent-teacher-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .recent-teacher-btn:hover {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
     </style>
 </head>
 
@@ -121,7 +160,7 @@
         
         <h1>Где препод?</h1>
         <p style="text-align: center; color: var(--text-light); margin-bottom: 30px;">
-            Найдите где бухает ваш преподаватель сегодня
+            А где препод?
         </p>
 
         <div class="input-group">
@@ -144,6 +183,13 @@
 
         <button id="search-teacher" class="button">Найти преподавателя</button>
 
+        <div id="recent-teachers" class="recent-teachers" style="display: none;">
+            <div class="recent-teachers-title">Последние поиски:</div>
+            <div id="recent-teachers-grid" class="recent-teachers-grid">
+                <!-- Recent teacher buttons will be populated here -->
+            </div>
+        </div>
+
         <div id="results" style="display: none;">
             <!-- Results will be populated here -->
         </div>
@@ -160,9 +206,80 @@
             const resultsDiv = document.getElementById('results');
 
             let allTeachers = [];
+            const recentTeachersDiv = document.getElementById('recent-teachers');
+            const recentTeachersGrid = document.getElementById('recent-teachers-grid');
 
             const today = new Date();
             dateInput.valueAsDate = today;
+
+            // Cookie functions
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return null;
+            }
+
+            function setCookie(name, value, days = 365) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                const expires = `expires=${date.toUTCString()}`;
+                document.cookie = `${name}=${value};${expires};path=/`;
+            }
+
+            function saveRecentTeacher(teacher) {
+                if (!teacher || !teacher.trim()) return;
+                
+                const cookieValue = getCookie('recent_teachers');
+                let recent = cookieValue ? JSON.parse(decodeURIComponent(cookieValue)) : [];
+                
+                // Remove if already exists
+                recent = recent.filter(t => t !== teacher);
+                // Add to beginning
+                recent.unshift(teacher);
+                // Keep only last 6
+                recent = recent.slice(0, 6);
+                
+                setCookie('recent_teachers', encodeURIComponent(JSON.stringify(recent)));
+                displayRecentTeachers();
+            }
+
+            function getRecentTeachers() {
+                const cookieValue = getCookie('recent_teachers');
+                if (!cookieValue) return [];
+                try {
+                    return JSON.parse(decodeURIComponent(cookieValue));
+                } catch (e) {
+                    return [];
+                }
+            }
+
+            function displayRecentTeachers() {
+                const recent = getRecentTeachers();
+                if (recent.length === 0) {
+                    recentTeachersDiv.style.display = 'none';
+                    return;
+                }
+
+                recentTeachersDiv.style.display = 'block';
+                recentTeachersGrid.innerHTML = '';
+
+                recent.forEach(teacher => {
+                    const btn = document.createElement('button');
+                    btn.className = 'recent-teacher-btn';
+                    btn.textContent = teacher;
+                    btn.title = teacher;
+                    btn.addEventListener('click', () => {
+                        teacherInput.value = teacher;
+                        teacherList.innerHTML = '';
+                        searchTeacher();
+                    });
+                    recentTeachersGrid.appendChild(btn);
+                });
+            }
+
+            // Load recent teachers on page load
+            displayRecentTeachers();
 
             clearButton.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -226,6 +343,8 @@
                 resultsDiv.style.display = 'block';
                 resultsDiv.innerHTML = '<div class="loading">Поиск...</div>';
 
+                const requestStartTime = performance.now();
+
                 try {
                     // Choose API type based on checkbox
                     const apiType = weekParsing ? 'json-week' : 'json';
@@ -236,6 +355,30 @@
                     }
 
                     const response = await fetch(url);
+                    const requestEndTime = performance.now();
+                    const requestDuration = requestEndTime - requestStartTime;
+
+                    // Get cache headers
+                    const cacheHit = response.headers.get('X-Cache-Hit') === 'true';
+                    const cacheAge = response.headers.get('X-Cache-Age');
+                    const cacheTTL = response.headers.get('X-Cache-TTL');
+
+                    // Log request details
+                    const logData = {
+                        timestamp: new Date().toISOString(),
+                        type: 'searchTeacher',
+                        teacher: teacher,
+                        date: date || 'today',
+                        weekParsing: weekParsing,
+                        requestDuration: `${requestDuration.toFixed(2)}ms`,
+                        cacheHit: cacheHit,
+                        cacheAge: cacheAge ? `${cacheAge}s` : null,
+                        cacheTTL: cacheTTL ? `${cacheTTL}s` : null,
+                        statusCode: response.status,
+                        url: url
+                    };
+                    console.log('[CLIENT LOG]', JSON.stringify(logData));
+
                     const data = await response.json();
 
                     if (!response.ok) {
@@ -243,8 +386,21 @@
                     }
 
                     displayResults(data, teacher, date, weekParsing);
+                    // Save to recent teachers
+                    saveRecentTeacher(teacher);
 
                 } catch (error) {
+                    const requestEndTime = performance.now();
+                    const requestDuration = requestEndTime - requestStartTime;
+                    
+                    console.error('[CLIENT LOG ERROR]', JSON.stringify({
+                        timestamp: new Date().toISOString(),
+                        type: 'searchTeacher',
+                        teacher: teacher,
+                        error: error.message,
+                        requestDuration: `${requestDuration.toFixed(2)}ms`
+                    }));
+                    
                     console.error('Ошибка поиска:', error);
                     resultsDiv.innerHTML = `
                         <div class="error">

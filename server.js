@@ -10,6 +10,90 @@ const app = express();
 const port = 3000;
 const TIMEZONE = "Europe/Moscow";
 
+// Logging utility
+function getClientIP(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+           req.headers['x-real-ip'] ||
+           req.connection?.remoteAddress ||
+           req.socket?.remoteAddress ||
+           req.ip ||
+           'unknown';
+}
+
+function parseUserAgent(userAgent) {
+    if (!userAgent) return { device: 'unknown', browser: 'unknown', os: 'unknown' };
+    
+    const ua = userAgent.toLowerCase();
+    let device = 'desktop';
+    let browser = 'unknown';
+    let os = 'unknown';
+    
+    // Device detection
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) {
+        device = 'mobile';
+    } else if (ua.includes('tablet') || ua.includes('ipad')) {
+        device = 'tablet';
+    }
+    
+    // Browser detection
+    if (ua.includes('chrome') && !ua.includes('edg')) browser = 'chrome';
+    else if (ua.includes('firefox')) browser = 'firefox';
+    else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'safari';
+    else if (ua.includes('edg')) browser = 'edge';
+    else if (ua.includes('opera') || ua.includes('opr')) browser = 'opera';
+    
+    // OS detection
+    if (ua.includes('windows')) os = 'windows';
+    else if (ua.includes('mac os') || ua.includes('macos')) os = 'macos';
+    else if (ua.includes('linux')) os = 'linux';
+    else if (ua.includes('android')) os = 'android';
+    else if (ua.includes('ios') || ua.includes('iphone') || ua.includes('ipad')) os = 'ios';
+    
+    return { device, browser, os };
+}
+
+function logRequest(req, res, responseTime, statusCode, resultSize = null) {
+    const timestamp = new Date().toISOString();
+    const clientIP = getClientIP(req);
+    const method = req.method;
+    const path = req.path;
+    const query = JSON.stringify(req.query);
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const referer = req.headers['referer'] || 'direct';
+    const uaInfo = parseUserAgent(userAgent);
+    
+    const logData = {
+        timestamp,
+        ip: clientIP,
+        method,
+        path,
+        query,
+        statusCode,
+        responseTime: `${responseTime}ms`,
+        userAgent,
+        device: uaInfo.device,
+        browser: uaInfo.browser,
+        os: uaInfo.os,
+        referer,
+        resultSize: resultSize ? `${resultSize} bytes` : null
+    };
+    
+    console.log(JSON.stringify(logData));
+}
+
+// Request logging middleware
+app.use((req, res, next) => {
+    const startTime = Date.now();
+    
+    res.on('finish', () => {
+        const responseTime = Date.now() - startTime;
+        const resultSize = res.get('content-length');
+        logRequest(req, res, responseTime, res.statusCode, resultSize);
+    });
+    
+    next();
+});
+
 const allowedTypes = new Set(["json", "json-week", "ics", "ics-week"]);
 
 const modernCalFormat = true;
@@ -65,11 +149,39 @@ app.get("/gen", async (req, res) => {
         if (type === "json" || type === "json-week") {
             if (type === "json-week") {
                 // Один запрос для всей недели - возвращаем все дни, что пришли от API
-                const fullData = await parseStudent(baseDate, group);
+                const cacheKey = getScheduleCacheKey('student', group, baseDate, subgroup);
+                let cacheInfo = getCachedSchedule(cacheKey);
+                let fullData = null;
+                
+                if (!cacheInfo) {
+                    fullData = await parseStudent(baseDate, group, subgroup);
+                    if (fullData) {
+                        setCachedSchedule(cacheKey, fullData);
+                    }
+                    setCacheHeaders(res, null);
+                } else {
+                    fullData = cacheInfo.data;
+                    setCacheHeaders(res, cacheInfo);
+                }
+                
                 return res.json(fullData || {});
             } else {
                 // Один день - как раньше
-                const fullData = await parseStudent(baseDate, group);
+                const cacheKey = getScheduleCacheKey('student', group, baseDate, subgroup);
+                let cacheInfo = getCachedSchedule(cacheKey);
+                let fullData = null;
+                
+                if (!cacheInfo) {
+                    fullData = await parseStudent(baseDate, group, subgroup);
+                    if (fullData) {
+                        setCachedSchedule(cacheKey, fullData);
+                    }
+                    setCacheHeaders(res, null);
+                } else {
+                    fullData = cacheInfo.data;
+                    setCacheHeaders(res, cacheInfo);
+                }
+                
                 const result = {};
                 if (fullData && fullData[baseDate]) {
                     result[baseDate] = fullData[baseDate];
@@ -87,7 +199,21 @@ app.get("/gen", async (req, res) => {
 
         if (type === "ics-week") {
             // Один запрос для всей недели - обрабатываем все дни, что пришли от API
-            const fullData = await parseStudent(baseDate, group, subgroup);
+            const cacheKey = getScheduleCacheKey('student', group, baseDate, subgroup);
+            let cacheInfo = getCachedSchedule(cacheKey);
+            let fullData = null;
+            
+            if (!cacheInfo) {
+                fullData = await parseStudent(baseDate, group, subgroup);
+                if (fullData) {
+                    setCachedSchedule(cacheKey, fullData);
+                }
+                setCacheHeaders(res, null);
+            } else {
+                fullData = cacheInfo.data;
+                setCacheHeaders(res, cacheInfo);
+            }
+            
             // Обрабатываем все дни из ответа
             if (fullData) {
                 for (const day in fullData) {
@@ -123,7 +249,21 @@ app.get("/gen", async (req, res) => {
             }
         } else {
             // Один день - как раньше
-            const fullData = await parseStudent(baseDate, group, subgroup);
+            const cacheKey = getScheduleCacheKey('student', group, baseDate, subgroup);
+            let cacheInfo = getCachedSchedule(cacheKey);
+            let fullData = null;
+            
+            if (!cacheInfo) {
+                fullData = await parseStudent(baseDate, group, subgroup);
+                if (fullData) {
+                    setCachedSchedule(cacheKey, fullData);
+                }
+                setCacheHeaders(res, null);
+            } else {
+                fullData = cacheInfo.data;
+                setCacheHeaders(res, cacheInfo);
+            }
+            
             const lessons = (fullData?.[baseDate]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
             for (const lesson of lessons) {
@@ -197,11 +337,39 @@ app.get("/gen_teach", async (req, res) => {
         if (type === "json" || type === "json-week") {
             if (type === "json-week") {
                 // Один запрос для всей недели - возвращаем все дни, что пришли от API
-                const fullData = await parseTeacher(baseDate, teacher);
+                const cacheKey = getScheduleCacheKey('teacher', teacher, baseDate);
+                let cacheInfo = getCachedSchedule(cacheKey);
+                let fullData = null;
+                
+                if (!cacheInfo) {
+                    fullData = await parseTeacher(baseDate, teacher);
+                    if (fullData) {
+                        setCachedSchedule(cacheKey, fullData);
+                    }
+                    setCacheHeaders(res, null);
+                } else {
+                    fullData = cacheInfo.data;
+                    setCacheHeaders(res, cacheInfo);
+                }
+                
                 return res.json(fullData || {});
             } else {
                 // Один день - как раньше
-                const fullData = await parseTeacher(baseDate, teacher);
+                const cacheKey = getScheduleCacheKey('teacher', teacher, baseDate);
+                let cacheInfo = getCachedSchedule(cacheKey);
+                let fullData = null;
+                
+                if (!cacheInfo) {
+                    fullData = await parseTeacher(baseDate, teacher);
+                    if (fullData) {
+                        setCachedSchedule(cacheKey, fullData);
+                    }
+                    setCacheHeaders(res, null);
+                } else {
+                    fullData = cacheInfo.data;
+                    setCacheHeaders(res, cacheInfo);
+                }
+                
                 const result = {};
                 if (fullData && fullData[baseDate]) {
                     result[baseDate] = fullData[baseDate];
@@ -218,7 +386,21 @@ app.get("/gen_teach", async (req, res) => {
 
         if (type === "ics-week") {
             // Один запрос для всей недели - обрабатываем все дни, что пришли от API
-            const fullData = await parseTeacher(baseDate, teacher);
+            const cacheKey = getScheduleCacheKey('teacher', teacher, baseDate);
+            let cacheInfo = getCachedSchedule(cacheKey);
+            let fullData = null;
+            
+            if (!cacheInfo) {
+                fullData = await parseTeacher(baseDate, teacher);
+                if (fullData) {
+                    setCachedSchedule(cacheKey, fullData);
+                }
+                setCacheHeaders(res, null);
+            } else {
+                fullData = cacheInfo.data;
+                setCacheHeaders(res, cacheInfo);
+            }
+            
             // Обрабатываем все дни из ответа
             if (fullData) {
                 for (const day in fullData) {
@@ -255,7 +437,21 @@ app.get("/gen_teach", async (req, res) => {
             }
         } else {
             // Один день - как раньше
-            const fullData = await parseTeacher(baseDate, teacher);
+            const cacheKey = getScheduleCacheKey('teacher', teacher, baseDate);
+            let cacheInfo = getCachedSchedule(cacheKey);
+            let fullData = null;
+            
+            if (!cacheInfo) {
+                fullData = await parseTeacher(baseDate, teacher);
+                if (fullData) {
+                    setCachedSchedule(cacheKey, fullData);
+                }
+                setCacheHeaders(res, null);
+            } else {
+                fullData = cacheInfo.data;
+                setCacheHeaders(res, cacheInfo);
+            }
+            
             const lessons = (fullData?.[baseDate]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
             for (const lesson of lessons) {
@@ -315,6 +511,7 @@ app.get("/gen_teach", async (req, res) => {
 ////////КЕШИРОВАНИЕ ДАННЫХ ПРЕПОДОВ И ГРУПП СТУДЕНТОВ
 
 const CACHE_TTL = 3600000; // 1 час в миллисекундах
+const SCHEDULE_CACHE_TTL = 7200000; // 2 часа для расписаний
 let groupsCache = {
     data: [],
     lastUpdated: 0
@@ -323,6 +520,62 @@ let teachersCache = {
     data: [],
     lastUpdated: 0
 };
+
+// Кэш расписаний: ключ = "student:group:date:subgroup" или "teacher:name:date"
+let scheduleCache = new Map();
+
+// Функции для работы с кэшем расписаний
+function getScheduleCacheKey(type, entity, date, subgroup = null) {
+    if (type === 'student') {
+        return `student:${entity}:${date}:${subgroup || 'all'}`;
+    } else {
+        return `teacher:${entity}:${date}`;
+    }
+}
+
+function getCachedSchedule(key) {
+    const cached = scheduleCache.get(key);
+    if (cached && (Date.now() - cached.timestamp < SCHEDULE_CACHE_TTL)) {
+        const age = Date.now() - cached.timestamp;
+        const ttl = SCHEDULE_CACHE_TTL - age;
+        return {
+            data: cached.data,
+            cacheHit: true,
+            cacheAge: age,
+            cacheTTL: ttl
+        };
+    }
+    if (cached) {
+        scheduleCache.delete(key);
+    }
+    return null;
+}
+
+function setCacheHeaders(res, cacheInfo) {
+    if (cacheInfo && cacheInfo.cacheHit) {
+        res.setHeader('X-Cache-Hit', 'true');
+        res.setHeader('X-Cache-Age', Math.floor(cacheInfo.cacheAge / 1000)); // seconds
+        res.setHeader('X-Cache-TTL', Math.floor(cacheInfo.cacheTTL / 1000)); // seconds
+    } else {
+        res.setHeader('X-Cache-Hit', 'false');
+    }
+}
+
+function setCachedSchedule(key, data) {
+    scheduleCache.set(key, {
+        data: data,
+        timestamp: Date.now()
+    });
+    // Очистка старых записей (если кэш больше 1000 записей)
+    if (scheduleCache.size > 1000) {
+        const now = Date.now();
+        for (const [k, v] of scheduleCache.entries()) {
+            if (now - v.timestamp > SCHEDULE_CACHE_TTL) {
+                scheduleCache.delete(k);
+            }
+        }
+    }
+}
 
 
 

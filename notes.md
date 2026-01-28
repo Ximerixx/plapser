@@ -816,6 +816,83 @@ curl -L http://api.durka.su/next_plugin/install.sh | bash
 - Performance improvement: 7 API calls → 1 API call for week schedules
 - Behavior change: Returns all available days from API, not limited to exactly 7 days
 
+**2024-12-XX - Recent Teachers Feature**
+- Added cookie-based storage for recent teacher searches
+- Saves last 6 searched teachers in cookies
+- Displays 6 quick access buttons (3 per row) below search button
+- Buttons show teacher names, clicking button fills input and triggers search
+- Cookie name: 'recent_teachers', stored as JSON array
+- Cookie expiration: 365 days
+- Features:
+  - Auto-saves teacher name after successful search
+  - Removes duplicates (moves to top if already exists)
+  - Limits to 6 most recent
+  - Buttons styled with theme support
+  - Grid layout: 3 columns
+- Changes made to: searchTeacher.html (CSS, HTML, JavaScript)
+- Functions added: getCookie, setCookie, saveRecentTeacher, getRecentTeachers, displayRecentTeachers
+
+**2024-12-XX - Detailed Logging System**
+- Added comprehensive request logging middleware
+- Logs all requests with detailed information:
+  - Timestamp (ISO format)
+  - Client IP (with reverse proxy support: X-Forwarded-For, X-Real-IP)
+  - HTTP method and path
+  - Query parameters (JSON)
+  - Response status code
+  - Response time in milliseconds
+  - User-Agent string
+  - Device type (mobile/tablet/desktop)
+  - Browser (chrome/firefox/safari/edge/opera)
+  - OS (windows/macos/linux/android/ios)
+  - Referer
+  - Response size in bytes
+- Logs output as JSON for easy parsing
+- Reverse proxy support: extracts real client IP from X-Forwarded-For or X-Real-IP headers
+- Changes made to: server.js (logging middleware, helper functions)
+- Functions added: getClientIP, parseUserAgent, logRequest
+
+**2024-12-XX - Schedule Caching**
+- Added in-memory cache for schedule data
+- Cache TTL: 2 hours (7200000 ms)
+- Cache key format: "student:group:date:subgroup" or "teacher:name:date"
+- Automatic cache cleanup when size exceeds 1000 entries
+- Caching applied to all schedule endpoints:
+  - /gen (json, json-week, ics, ics-week)
+  - /gen_teach (json, json-week, ics, ics-week)
+- Reduces API calls to KIS and improves response times
+- Changes made to: server.js (cache functions and integration)
+- Functions added: getScheduleCacheKey, getCachedSchedule, setCachedSchedule
+
+**2024-12-XX - Recent Groups Feature**
+- Added cookie-based storage for recent group searches (symmetric to teachers)
+- Saves last 6 searched groups in cookies
+- Displays 6 quick access buttons (3 per row) below search button
+- Buttons show group names, clicking button fills input and triggers search
+- Cookie name: 'recent_groups', stored as JSON array
+- Cookie expiration: 365 days
+- Features identical to recent teachers feature
+- Changes made to: searchStudent.html (CSS, HTML, JavaScript)
+- Functions added: getCookie, setCookie, saveRecentGroup, getRecentGroups, displayRecentGroups
+
+**2024-12-XX - Client-Side Logging and Cache Headers**
+- Added cache information headers to server responses:
+  - X-Cache-Hit: 'true' or 'false'
+  - X-Cache-Age: age of cached data in seconds
+  - X-Cache-TTL: remaining TTL in seconds
+- Modified getCachedSchedule to return cache metadata (hit, age, TTL)
+- Added setCacheHeaders function to set cache headers in responses
+- Added client-side logging in searchStudent.html and searchTeacher.html:
+  - Logs request timing (start to finish in milliseconds)
+  - Logs cache hit/miss status
+  - Logs cache age and TTL
+  - Logs request parameters (group/teacher, date, type)
+  - Logs status code and URL
+  - Logs errors with timing information
+- Logs output to browser console as JSON with [CLIENT LOG] prefix
+- Uses performance.now() for high-precision timing
+- Changes made to: server.js (cache headers), searchStudent.html (logging), searchTeacher.html (logging)
+
 ---
 
 ## CRITICAL CODE PATTERNS
