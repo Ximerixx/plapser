@@ -684,6 +684,28 @@
                     .then((registration) => {
                         console.log('[Service Worker] Registered:', registration.scope);
                         
+                        // Кэшируем текущую страницу и другие HTML страницы при регистрации
+                        if (registration.active || registration.installing) {
+                            const pagesToCache = [
+                                window.location.href,
+                                '/gui',
+                                '/searchStudent',
+                                '/searchTeacher'
+                            ];
+                            
+                            pagesToCache.forEach(pageUrl => {
+                                fetch(pageUrl, { credentials: 'same-origin' })
+                                    .then(response => {
+                                        if (response.ok) {
+                                            return caches.open('plapser-static-v1').then(cache => {
+                                                return cache.put(pageUrl, response);
+                                            });
+                                        }
+                                    })
+                                    .catch(err => console.log(`[SW] Failed to cache ${pageUrl}:`, err));
+                            });
+                        }
+                        
                         // Check for updates
                         registration.addEventListener('updatefound', () => {
                             console.log('[Service Worker] Update found');

@@ -12,7 +12,9 @@ const STATIC_FILES = [
   '/searchTeacher',
   '/stylesheet.css',
   '/gen.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 // Инициализация IndexedDB
@@ -114,7 +116,21 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       console.log('[Service Worker] Caching static files');
-      return cache.addAll(STATIC_FILES.map(url => new Request(url, { credentials: 'same-origin' })));
+      // Кэшируем файлы, игнорируя ошибки для несуществующих
+      return Promise.allSettled(
+        STATIC_FILES.map(url => {
+          return fetch(url, { credentials: 'same-origin' })
+            .then(response => {
+              if (response.ok) {
+                return cache.put(url, response);
+              }
+            })
+            .catch(err => {
+              console.log(`[SW] Failed to cache ${url}:`, err);
+              return null;
+            });
+        })
+      );
     })
   );
   self.skipWaiting();
@@ -199,21 +215,56 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Статические файлы - стратегия "Cache First"
+  // Статические файлы и HTML страницы - стратегия "Cache First"
   if (url.origin === location.origin) {
+    const isHTMLPage = url.pathname === '/gui' || 
+                       url.pathname === '/searchStudent' || 
+                       url.pathname === '/searchTeacher';
+    
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
         return fetch(request).then((response) => {
-          if (response.status === 200) {
+          // Кэшируем HTML страницы и статические файлы
+          if (response.status === 200 && (
+            isHTMLPage ||
+            url.pathname.endsWith('.css') ||
+            url.pathname.endsWith('.js') ||
+            url.pathname.endsWith('.json') ||
+            url.pathname.endsWith('.png') ||
+            url.pathname.endsWith('.ico')
+          )) {
             const responseClone = response.clone();
             caches.open(STATIC_CACHE).then((cache) => {
               cache.put(request, responseClone);
+              console.log(`[SW] Cached: ${url.pathname}`);
             });
           }
           return response;
+        }).catch(() => {
+          // Если сеть недоступна, пытаемся вернуть из кэша
+          return caches.match(request).then((cached) => {
+            if (cached) {
+              return cached;
+            }
+            // Если это HTML страница и нет в кэше, пробуем найти любую HTML страницу
+            if (isHTMLPage) {
+              // Пробуем найти любую из страниц в кэше
+              return caches.match('/gui').then(gui => {
+                if (gui) return gui;
+                return caches.match('/searchStudent').then(student => {
+                  if (student) return student;
+                  return caches.match('/searchTeacher');
+                });
+              });
+            }
+            return new Response('Нет подключения к интернету', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain' }
+            });
+          });
         });
       })
     );
