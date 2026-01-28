@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#7131c0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Plapser">
     <title>Поиск преподавателя</title>
     <link rel="stylesheet" href="stylesheet.css">
     <link rel="manifest" href="/manifest.json">
@@ -594,11 +598,29 @@
                 navigator.serviceWorker.register('/service-worker.js')
                     .then((registration) => {
                         console.log('[Service Worker] Registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            console.log('[Service Worker] Update found');
+                        });
                     })
                     .catch((error) => {
                         console.error('[Service Worker] Registration failed:', error);
                     });
             }
+
+            // Show install prompt if available
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                console.log('[PWA] Install prompt available');
+            });
+
+            window.addEventListener('appinstalled', () => {
+                console.log('[PWA] App installed');
+                deferredPrompt = null;
+            });
         });
 
         // Theme functionality
