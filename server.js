@@ -15,7 +15,7 @@ const allowedTypes = new Set(["json", "json-week", "ics", "ics-week"]);
 const modernCalFormat = true;
 
 // Configuration for Nextcloud plugin serving
-const serveNextcloudPlugin = true //false
+const serveNextcloudPlugin = false //false
 const nextcloudPluginPath = './next_plugin.tar.gz'
 
 
