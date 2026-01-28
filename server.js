@@ -64,17 +64,9 @@ app.get("/gen", async (req, res) => {
     try {
         if (type === "json" || type === "json-week") {
             if (type === "json-week") {
-                // Один запрос для всей недели
+                // Один запрос для всей недели - возвращаем все дни, что пришли от API
                 const fullData = await parseStudent(baseDate, group);
-                const result = {};
-                // Фильтруем только нужные 7 дней
-                for (let i = 0; i < 7; i++) {
-                    const day = getDateOffset(i, baseDate);
-                    if (fullData && fullData[day]) {
-                        result[day] = fullData[day];
-                    }
-                }
-                return res.json(result);
+                return res.json(fullData || {});
             } else {
                 // Один день - как раньше
                 const fullData = await parseStudent(baseDate, group);
@@ -94,37 +86,38 @@ app.get("/gen", async (req, res) => {
         });
 
         if (type === "ics-week") {
-            // Один запрос для всей недели
+            // Один запрос для всей недели - обрабатываем все дни, что пришли от API
             const fullData = await parseStudent(baseDate, group, subgroup);
-            // Обрабатываем все дни из ответа, но фильтруем только нужные 7
-            for (let i = 0; i < 7; i++) {
-                const day = getDateOffset(i, baseDate);
-                const lessons = (fullData?.[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
+            // Обрабатываем все дни из ответа
+            if (fullData) {
+                for (const day in fullData) {
+                    const lessons = (fullData[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
-                for (const lesson of lessons) {
-                    const [startTime, endTime] = lesson.time.split("-");
-                    const [hourStart, minStart] = startTime.split(":").map(Number);
-                    const [hourEnd, minEnd] = endTime.split(":").map(Number);
-                    const [year, month, dayNum] = day.split("-").map(Number);
+                    for (const lesson of lessons) {
+                        const [startTime, endTime] = lesson.time.split("-");
+                        const [hourStart, minStart] = startTime.split(":").map(Number);
+                        const [hourEnd, minEnd] = endTime.split(":").map(Number);
+                        const [year, month, dayNum] = day.split("-").map(Number);
 
-                    if (modernCalFormat) {
-                        calendar.createEvent({
-                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
-                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
-                            summary: lesson.name + (lesson.type ? ` (${lesson.type})` : "") + lesson.classroom,
-                            description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
-                            location: lesson.classroom,
-                            timezone: TIMEZONE
-                        });
-                    } else if (!modernCalFormat) {
-                        calendar.createEvent({
-                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
-                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
-                            summary: lesson.name + (lesson.type ? ` (${lesson.type})` : ""),
-                            description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
-                            location: lesson.classroom,
-                            timezone: TIMEZONE
-                        });
+                        if (modernCalFormat) {
+                            calendar.createEvent({
+                                start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                                end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                                summary: lesson.name + (lesson.type ? ` (${lesson.type})` : "") + lesson.classroom,
+                                description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
+                                location: lesson.classroom,
+                                timezone: TIMEZONE
+                            });
+                        } else if (!modernCalFormat) {
+                            calendar.createEvent({
+                                start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                                end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                                summary: lesson.name + (lesson.type ? ` (${lesson.type})` : ""),
+                                description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
+                                location: lesson.classroom,
+                                timezone: TIMEZONE
+                            });
+                        }
                     }
                 }
             }
@@ -203,17 +196,9 @@ app.get("/gen_teach", async (req, res) => {
     try {
         if (type === "json" || type === "json-week") {
             if (type === "json-week") {
-                // Один запрос для всей недели
+                // Один запрос для всей недели - возвращаем все дни, что пришли от API
                 const fullData = await parseTeacher(baseDate, teacher);
-                const result = {};
-                // Фильтруем только нужные 7 дней
-                for (let i = 0; i < 7; i++) {
-                    const day = getDateOffset(i, baseDate);
-                    if (fullData && fullData[day]) {
-                        result[day] = fullData[day];
-                    }
-                }
-                return res.json(result);
+                return res.json(fullData || {});
             } else {
                 // Один день - как раньше
                 const fullData = await parseTeacher(baseDate, teacher);
@@ -232,38 +217,39 @@ app.get("/gen_teach", async (req, res) => {
         });
 
         if (type === "ics-week") {
-            // Один запрос для всей недели
+            // Один запрос для всей недели - обрабатываем все дни, что пришли от API
             const fullData = await parseTeacher(baseDate, teacher);
-            // Обрабатываем все дни из ответа, но фильтруем только нужные 7
-            for (let i = 0; i < 7; i++) {
-                const day = getDateOffset(i, baseDate);
-                const lessons = (fullData?.[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
+            // Обрабатываем все дни из ответа
+            if (fullData) {
+                for (const day in fullData) {
+                    const lessons = (fullData[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
-                for (const lesson of lessons) {
-                    const [startTime, endTime] = lesson.time.split("-");
-                    const [hourStart, minStart] = startTime.split(":").map(Number);
-                    const [hourEnd, minEnd] = endTime.split(":").map(Number);
-                    const [year, month, dayNum] = day.split("-").map(Number);
+                    for (const lesson of lessons) {
+                        const [startTime, endTime] = lesson.time.split("-");
+                        const [hourStart, minStart] = startTime.split(":").map(Number);
+                        const [hourEnd, minEnd] = endTime.split(":").map(Number);
+                        const [year, month, dayNum] = day.split("-").map(Number);
 
-                    if (modernCalFormat) {
-                        calendar.createEvent({
-                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
-                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
-                            summary: lesson.subject || "Занятие",
-                            description: `${lesson.room || ""} ${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
-                            location: lesson.room || "",
-                            timezone: TIMEZONE
-                        });
-                    }
-                    else if (!modernCalFormat) {
-                        calendar.createEvent({
-                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
-                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
-                            summary: lesson.subject || "Занятие",
-                            description: `${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
-                            location: lesson.room || "",
-                            timezone: TIMEZONE
-                        });
+                        if (modernCalFormat) {
+                            calendar.createEvent({
+                                start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                                end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                                summary: lesson.subject || "Занятие",
+                                description: `${lesson.room || ""} ${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
+                                location: lesson.room || "",
+                                timezone: TIMEZONE
+                            });
+                        }
+                        else if (!modernCalFormat) {
+                            calendar.createEvent({
+                                start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                                end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                                summary: lesson.subject || "Занятие",
+                                description: `${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
+                                location: lesson.room || "",
+                                timezone: TIMEZONE
+                            });
+                        }
                     }
                 }
             }

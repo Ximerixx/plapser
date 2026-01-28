@@ -808,11 +808,13 @@ curl -L http://api.durka.su/next_plugin/install.sh | bash
 - For json-week and ics-week types:
   - Single call to parseStudent/parseTeacher with baseDate
   - Parser returns all days from API response (already supported)
-  - Filter only needed 7 days (baseDate + 0..6) from result
+  - Return ALL days from API response (no filtering to 7 days)
+  - API may return more or fewer days depending on what's available
 - For single day requests (json, ics): unchanged behavior
 - Parsers (parseStudent.js, parseTeacher.js) unchanged - they already parse multiple days from one response
 - Changes made to: server.js only (4 locations: json-week student, ics-week student, json-week teacher, ics-week teacher)
 - Performance improvement: 7 API calls → 1 API call for week schedules
+- Behavior change: Returns all available days from API, not limited to exactly 7 days
 
 ---
 
