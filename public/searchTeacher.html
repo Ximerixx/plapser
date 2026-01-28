@@ -4,8 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#7131c0">
     <title>Поиск преподавателя</title>
     <link rel="stylesheet" href="stylesheet.css">
+    <link rel="manifest" href="/manifest.json">
     <style>
         .results-container {
             margin-top: 20px;
@@ -102,6 +104,40 @@
             transition: background-color 0.3s ease;
         }
         
+        .offline-indicator {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: var(--error);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow);
+            z-index: 999;
+            display: none;
+            font-size: 14px;
+            max-width: 250px;
+        }
+        
+        .offline-indicator.show {
+            display: block;
+        }
+        
+        .cache-warning {
+            background: #ff9800;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            border-left: 4px solid #f57c00;
+        }
+        
+        .cache-warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
         .recent-teachers {
             margin-top: 20px;
             margin-bottom: 20px;
@@ -149,6 +185,11 @@
         <button id="theme-toggle" class="theme-toggle-button" title="Переключить тему">
             🌙
         </button>
+    </div>
+    
+    <!-- Offline Indicator -->
+    <div id="offline-indicator" class="offline-indicator">
+        Нет подключения к интернету
     </div>
 
     <div class="container">
@@ -362,6 +403,7 @@
                     const cacheHit = response.headers.get('X-Cache-Hit') === 'true';
                     const cacheAge = response.headers.get('X-Cache-Age');
                     const cacheTTL = response.headers.get('X-Cache-TTL');
+                    const offlineCache = response.headers.get('X-Offline-Cache') === 'true';
 
                     // Log request details
                     const logData = {
@@ -374,6 +416,7 @@
                         cacheHit: cacheHit,
                         cacheAge: cacheAge ? `${cacheAge}s` : null,
                         cacheTTL: cacheTTL ? `${cacheTTL}s` : null,
+                        offlineCache: offlineCache,
                         statusCode: response.status,
                         url: url
                     };
@@ -385,7 +428,7 @@
                         throw new Error(data.error || 'Ошибка при поиске преподавателя');
                     }
 
-                    displayResults(data, teacher, date, weekParsing);
+                    displayResults(data, teacher, date, weekParsing, offlineCache);
                     // Save to recent teachers
                     saveRecentTeacher(teacher);
 
@@ -410,9 +453,15 @@
                 }
             }
 
-            function displayResults(data, teacher, searchDate, weekParsing) {
+            function displayResults(data, teacher, searchDate, weekParsing, offlineCache = false) {
                 let html = `
                     <div class="results-container">
+                        ${offlineCache ? `
+                            <div class="cache-warning">
+                                <strong>⚠️ Данные из офлайн кэша</strong>
+                                Расписание было закэшировано ранее и может быть устаревшим. Обновите данные при подключении к интернету.
+                            </div>
+                        ` : ''}
                         <div class="teacher-info">
                             <div class="teacher-name">${teacher}</div>
                             <div class="search-date">${weekParsing ? 'Расписание на неделю' : (searchDate || 'Сегодня')}</div>
@@ -524,6 +573,32 @@
 
             // Load teachers on page load
             fetchTeachers();
+
+            // Offline/Online detection
+            const offlineIndicator = document.getElementById('offline-indicator');
+            
+            function updateOfflineStatus() {
+                if (!navigator.onLine) {
+                    offlineIndicator.classList.add('show');
+                } else {
+                    offlineIndicator.classList.remove('show');
+                }
+            }
+
+            window.addEventListener('online', updateOfflineStatus);
+            window.addEventListener('offline', updateOfflineStatus);
+            updateOfflineStatus();
+
+            // Register Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('[Service Worker] Registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.error('[Service Worker] Registration failed:', error);
+                    });
+            }
         });
 
         // Theme functionality

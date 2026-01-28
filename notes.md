@@ -893,6 +893,40 @@ curl -L http://api.durka.su/next_plugin/install.sh | bash
 - Uses performance.now() for high-precision timing
 - Changes made to: server.js (cache headers), searchStudent.html (logging), searchTeacher.html (logging)
 
+**2024-12-XX - PWA (Progressive Web App) Support**
+- Added PWA support for offline functionality and app installation
+- Created manifest.json with app metadata:
+  - App name, short name, description
+  - Start URL: /gui
+  - Display mode: standalone
+  - Theme color: #7131c0
+  - Icons: 192x192 and 512x512 (need to be created)
+- Created service-worker.js for offline caching:
+  - Caches static files (HTML, CSS, JS)
+  - Caches API responses (/gen, /gen_teach, /api/)
+  - Network-first strategy for API (falls back to cache when offline)
+  - Cache-first strategy for static files
+  - Adds X-Offline-Cache header when serving from cache
+- Added offline indicator:
+  - Fixed position banner showing "Нет подключения к интернету"
+  - Appears when navigator.onLine is false
+  - Styled with error color
+- Added cache warning banner:
+  - Orange warning box displayed when data comes from offline cache
+  - Shows message: "⚠️ Данные из офлайн кэша"
+  - Warns that data may be outdated
+  - Appears in results when X-Offline-Cache header is present
+- Service Worker registration in all HTML pages:
+  - gui.html, searchStudent.html, searchTeacher.html
+  - Automatic registration on page load
+- Changes made to:
+  - manifest.json (new file)
+  - service-worker.js (new file)
+  - gui.html (manifest link, service worker registration)
+  - searchStudent.html (manifest link, offline indicator, cache warning, service worker)
+  - searchTeacher.html (manifest link, offline indicator, cache warning, service worker)
+- Note: Icon files (icon-192.png and icon-512.png) need to be created and placed in /public directory
+
 ---
 
 ## CRITICAL CODE PATTERNS
