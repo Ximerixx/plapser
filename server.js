@@ -63,18 +63,27 @@ app.get("/gen", async (req, res) => {
 
     try {
         if (type === "json" || type === "json-week") {
-            const daysToGenerate = type === "json-week" ? 7 : 1;
-            const result = {};
-            // todo - паковать бля сразу все, а не дергать за хуй семь раз, но пока так
-            for (let i = 0; i < daysToGenerate; i++) {
-                const day = getDateOffset(i, baseDate);
-                const fullData = await parseStudent(day, group);
-                if (fullData && fullData[day]) {
-                    result[day] = fullData[day];
+            if (type === "json-week") {
+                // Один запрос для всей недели
+                const fullData = await parseStudent(baseDate, group);
+                const result = {};
+                // Фильтруем только нужные 7 дней
+                for (let i = 0; i < 7; i++) {
+                    const day = getDateOffset(i, baseDate);
+                    if (fullData && fullData[day]) {
+                        result[day] = fullData[day];
+                    }
                 }
+                return res.json(result);
+            } else {
+                // Один день - как раньше
+                const fullData = await parseStudent(baseDate, group);
+                const result = {};
+                if (fullData && fullData[baseDate]) {
+                    result[baseDate] = fullData[baseDate];
+                }
+                return res.json(result);
             }
-
-            return res.json(result);
         }
 
         //если не json то нам сюда
@@ -84,18 +93,51 @@ app.get("/gen", async (req, res) => {
             timezone: TIMEZONE
         });
 
-        const daysToGenerate = type === "ics-week" ? 7 : 1;
+        if (type === "ics-week") {
+            // Один запрос для всей недели
+            const fullData = await parseStudent(baseDate, group, subgroup);
+            // Обрабатываем все дни из ответа, но фильтруем только нужные 7
+            for (let i = 0; i < 7; i++) {
+                const day = getDateOffset(i, baseDate);
+                const lessons = (fullData?.[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
-        for (let i = 0; i < daysToGenerate; i++) {
-            const day = getDateOffset(i, baseDate);
-            const fullData = await parseStudent(day, group, subgroup);
-            const lessons = (fullData?.[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
+                for (const lesson of lessons) {
+                    const [startTime, endTime] = lesson.time.split("-");
+                    const [hourStart, minStart] = startTime.split(":").map(Number);
+                    const [hourEnd, minEnd] = endTime.split(":").map(Number);
+                    const [year, month, dayNum] = day.split("-").map(Number);
+
+                    if (modernCalFormat) {
+                        calendar.createEvent({
+                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                            summary: lesson.name + (lesson.type ? ` (${lesson.type})` : "") + lesson.classroom,
+                            description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
+                            location: lesson.classroom,
+                            timezone: TIMEZONE
+                        });
+                    } else if (!modernCalFormat) {
+                        calendar.createEvent({
+                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                            summary: lesson.name + (lesson.type ? ` (${lesson.type})` : ""),
+                            description: `${lesson.teacher}${lesson.subgroup ? ` | П/г: ${lesson.subgroup}` : ""}`,
+                            location: lesson.classroom,
+                            timezone: TIMEZONE
+                        });
+                    }
+                }
+            }
+        } else {
+            // Один день - как раньше
+            const fullData = await parseStudent(baseDate, group, subgroup);
+            const lessons = (fullData?.[baseDate]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
             for (const lesson of lessons) {
                 const [startTime, endTime] = lesson.time.split("-");
                 const [hourStart, minStart] = startTime.split(":").map(Number);
                 const [hourEnd, minEnd] = endTime.split(":").map(Number);
-                const [year, month, dayNum] = day.split("-").map(Number);
+                const [year, month, dayNum] = baseDate.split("-").map(Number);
 
                 if (modernCalFormat) {
                     calendar.createEvent({
@@ -160,18 +202,27 @@ app.get("/gen_teach", async (req, res) => {
 
     try {
         if (type === "json" || type === "json-week") {
-            const daysToGenerate = type === "json-week" ? 7 : 1;
-            const result = {};
-
-            for (let i = 0; i < daysToGenerate; i++) {
-                const day = getDateOffset(i, baseDate);
-                const fullData = await parseTeacher(day, teacher);
-                if (fullData && fullData[day]) {
-                    result[day] = fullData[day];
+            if (type === "json-week") {
+                // Один запрос для всей недели
+                const fullData = await parseTeacher(baseDate, teacher);
+                const result = {};
+                // Фильтруем только нужные 7 дней
+                for (let i = 0; i < 7; i++) {
+                    const day = getDateOffset(i, baseDate);
+                    if (fullData && fullData[day]) {
+                        result[day] = fullData[day];
+                    }
                 }
+                return res.json(result);
+            } else {
+                // Один день - как раньше
+                const fullData = await parseTeacher(baseDate, teacher);
+                const result = {};
+                if (fullData && fullData[baseDate]) {
+                    result[baseDate] = fullData[baseDate];
+                }
+                return res.json(result);
             }
-
-            return res.json(result);
         }
 
         // если не json и не json-week -> генерим ICS
@@ -180,18 +231,52 @@ app.get("/gen_teach", async (req, res) => {
             timezone: TIMEZONE
         });
 
-        const daysToGenerate = type === "ics-week" ? 7 : 1;
+        if (type === "ics-week") {
+            // Один запрос для всей недели
+            const fullData = await parseTeacher(baseDate, teacher);
+            // Обрабатываем все дни из ответа, но фильтруем только нужные 7
+            for (let i = 0; i < 7; i++) {
+                const day = getDateOffset(i, baseDate);
+                const lessons = (fullData?.[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
-        for (let i = 0; i < daysToGenerate; i++) {
-            const day = getDateOffset(i, baseDate);
-            const fullData = await parseTeacher(day, teacher);
-            const lessons = (fullData?.[day]?.lessons || []).filter(l => l.time && l.time.includes("-"));
+                for (const lesson of lessons) {
+                    const [startTime, endTime] = lesson.time.split("-");
+                    const [hourStart, minStart] = startTime.split(":").map(Number);
+                    const [hourEnd, minEnd] = endTime.split(":").map(Number);
+                    const [year, month, dayNum] = day.split("-").map(Number);
+
+                    if (modernCalFormat) {
+                        calendar.createEvent({
+                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                            summary: lesson.subject || "Занятие",
+                            description: `${lesson.room || ""} ${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
+                            location: lesson.room || "",
+                            timezone: TIMEZONE
+                        });
+                    }
+                    else if (!modernCalFormat) {
+                        calendar.createEvent({
+                            start: new Date(year, month - 1, dayNum, hourStart, minStart),
+                            end: new Date(year, month - 1, dayNum, hourEnd, minEnd),
+                            summary: lesson.subject || "Занятие",
+                            description: `${lesson.group || ""}${lesson.note ? ` | ${lesson.note}` : ""}`,
+                            location: lesson.room || "",
+                            timezone: TIMEZONE
+                        });
+                    }
+                }
+            }
+        } else {
+            // Один день - как раньше
+            const fullData = await parseTeacher(baseDate, teacher);
+            const lessons = (fullData?.[baseDate]?.lessons || []).filter(l => l.time && l.time.includes("-"));
 
             for (const lesson of lessons) {
                 const [startTime, endTime] = lesson.time.split("-");
                 const [hourStart, minStart] = startTime.split(":").map(Number);
                 const [hourEnd, minEnd] = endTime.split(":").map(Number);
-                const [year, month, dayNum] = day.split("-").map(Number);
+                const [year, month, dayNum] = baseDate.split("-").map(Number);
 
                 if (modernCalFormat) {
                     calendar.createEvent({
